@@ -161,3 +161,7 @@ The app stores unfinished workout drafts and settings in `localStorage`, so refr
 3. In the repository settings, enable GitHub Pages from the branch and folder that contain these files.
 
 No build command is required.
+
+## Android install
+
+The app includes a web app manifest and service worker, so Chrome on Android can install it from the GitHub Pages URL. The install button appears only when the browser fires the PWA install prompt. It will not appear when opening `index.html` directly from the filesystem.

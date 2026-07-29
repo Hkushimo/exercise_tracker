@@ -119,6 +119,7 @@ const els = {
   addExercise: document.querySelector("#addExerciseButton"),
   formMessage: document.querySelector("#formMessage"),
   submit: document.querySelector("#submitButton"),
+  installButton: document.querySelector("#installButton"),
   settingsToggle: document.querySelector("#settingsToggle"),
   settingsPanel: document.querySelector("#settingsPanel"),
   defaultUnit: document.querySelector("#defaultUnit"),
@@ -135,10 +136,13 @@ const els = {
 let settings = loadSettings();
 let pendingPayload = null;
 let saveTimer = 0;
+let deferredInstallPrompt = null;
 
 init();
 
 function init() {
+  registerServiceWorker();
+  setupInstallPrompt();
   applyTheme(settings.theme);
   els.date.value = todayIso();
   els.defaultUnit.value = settings.defaultUnit;
@@ -175,6 +179,42 @@ function init() {
     if (els.summaryModal.returnValue === "confirm") {
       submitWorkout();
     }
+  });
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js").catch(() => {
+      // The app still works without offline caching if registration fails.
+    });
+  });
+}
+
+function setupInstallPrompt() {
+  if (!els.installButton) return;
+
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    els.installButton.hidden = false;
+  });
+
+  els.installButton.addEventListener("click", async () => {
+    if (!deferredInstallPrompt) return;
+
+    els.installButton.disabled = true;
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice.catch(() => null);
+    deferredInstallPrompt = null;
+    els.installButton.hidden = true;
+    els.installButton.disabled = false;
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    els.installButton.hidden = true;
   });
 }
 

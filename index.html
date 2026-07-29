@@ -4,6 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="A lightweight workout tracker for logging exercises and sets.">
+    <meta name="theme-color" content="#061615">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Workout Tracker">
     <title>Workout Tracker</title>
     <script>
       try {
@@ -13,6 +16,9 @@
         document.documentElement.dataset.theme = "system";
       }
     </script>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -24,9 +30,14 @@
           <p class="eyebrow">Workout log</p>
           <h1>Track today's session</h1>
         </div>
-        <button class="ghost-button" type="button" id="settingsToggle" aria-expanded="false" aria-controls="settingsPanel">
-          Settings
-        </button>
+        <div class="header-actions">
+          <button class="ghost-button install-button" type="button" id="installButton" hidden>
+            Install
+          </button>
+          <button class="ghost-button" type="button" id="settingsToggle" aria-expanded="false" aria-controls="settingsPanel">
+            Settings
+          </button>
+        </div>
       </header>
 
       <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsHeading" hidden>

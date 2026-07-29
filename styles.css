@@ -120,6 +120,7 @@ button:disabled {
 .section-heading,
 .exercise-header,
 .exercise-actions,
+.header-actions,
 .modal-header,
 .modal-actions,
 .submit-bar {
@@ -131,6 +132,15 @@ button:disabled {
 
 .page-header {
   padding: 1rem 0 1.25rem;
+}
+
+.header-actions {
+  justify-content: flex-end;
+}
+
+.install-button {
+  border-color: var(--accent);
+  color: var(--accent-dark);
 }
 
 h1,
@@ -525,12 +535,14 @@ textarea {
   .page-header,
   .section-heading,
   .exercise-header,
+  .header-actions,
   .modal-actions {
     align-items: stretch;
     flex-direction: column;
   }
 
   .page-header .ghost-button,
+  .header-actions button,
   .section-heading .secondary-button,
   .exercise-actions button,
   .modal-actions button {
