@@ -335,13 +335,9 @@ function refreshExerciseOptions() {
 // Each new set inherits weight and reps from the previous set for faster entry.
 function addSet(setsList, data = {}) {
   const row = els.setTemplate.content.firstElementChild.cloneNode(true);
-  const previous = setsList.lastElementChild;
 
-  const previousWeight = previous?.querySelector(".set-weight").value || "";
-  const previousReps = previous?.querySelector(".set-reps").value || "";
-
-  row.querySelector(".set-weight").value = data.weight ?? previousWeight;
-  row.querySelector(".set-reps").value = data.reps ?? previousReps;
+  row.querySelector(".set-weight").value = data.weight ?? 0;
+  row.querySelector(".set-reps").value = data.reps ?? 0;
   setRpe(row, data.rpe ?? "");
 
   row.querySelectorAll(".rpe-option").forEach((button) => {
