@@ -364,11 +364,13 @@ function setRpe(row, value) {
 function normalizeRpe(value) {
   if (value === "" || value === null || value === undefined) return "";
 
+  if (["Easy", "Hard", "Max"].includes(value)) return value;
+
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return "";
-  if (numeric <= 7.5) return "7";
-  if (numeric <= 8.5) return "8";
-  return "9";
+  if (numeric <= 7.5) return "Easy";
+  if (numeric <= 8.5) return "Hard";
+  return "Max";
 }
 
 function renumberSets(setsList) {
@@ -396,7 +398,7 @@ function collectWorkout({ includeIncomplete = true } = {}) {
             weight: weight === "" ? "" : Number(weight),
             unit: settings.defaultUnit,
             reps: reps === "" ? "" : Number(reps),
-            rpe: rpe === "" ? "" : Number(rpe),
+            rpe,
             notes: "",
           };
         })
@@ -430,7 +432,7 @@ function validateWorkout(payload) {
   const completedSets = payload.exercises.flatMap((exercise) => exercise.sets);
   if (!completedSets.length) return "Add at least one completed set with weight and reps.";
   if (completedSets.some((set) => set.weight < 0 || set.reps < 0)) return "Weight and reps cannot be negative.";
-  if (completedSets.some((set) => set.rpe !== "" && (set.rpe < 1 || set.rpe > 10))) return "RPE must be between 1 and 10.";
+  if (completedSets.some((set) => set.rpe !== "" && !["Easy", "Hard", "Max"].includes(set.rpe))) return "RPE must be Easy, Hard, or Max.";
 
   return "";
 }

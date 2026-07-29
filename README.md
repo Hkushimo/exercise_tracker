@@ -141,7 +141,7 @@ This app detects Apps Script URLs that include `script.google.com/macros/` and s
           "weight": 135,
           "unit": "lb",
           "reps": 10,
-          "rpe": 8,
+          "rpe": "Hard",
           "notes": ""
         }
       ]
