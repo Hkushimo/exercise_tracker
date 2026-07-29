@@ -119,6 +119,7 @@ const els = {
   duration: document.querySelector("#workoutDuration"),
   exerciseList: document.querySelector("#exerciseList"),
   addExercise: document.querySelector("#addExerciseButton"),
+  removeExercise: document.querySelector("#removeExerciseButton"),
   formMessage: document.querySelector("#formMessage"),
   submit: document.querySelector("#submitButton"),
   installButton: document.querySelector("#installButton"),
@@ -162,6 +163,12 @@ function init() {
 
   els.addExercise.addEventListener("click", () => {
     addExercise();
+    updateExerciseControls();
+    saveDraftSoon();
+  });
+
+  els.removeExercise.addEventListener("click", () => {
+    removeLastExercise();
     saveDraftSoon();
   });
 
@@ -294,12 +301,12 @@ function addExercise(data = {}) {
   node.querySelector(".add-set").addEventListener("click", () => {
     addSet(setsList);
     renumberSets(setsList);
+    updateSetControls(node);
     saveDraftSoon();
   });
 
-  node.querySelector(".remove-exercise").addEventListener("click", () => {
-    node.remove();
-    if (!els.exerciseList.children.length) addExercise();
+  node.querySelector(".remove-set").addEventListener("click", () => {
+    removeLastSet(node);
     saveDraftSoon();
   });
 
@@ -312,6 +319,50 @@ function addExercise(data = {}) {
   }
 
   renumberSets(setsList);
+  updateSetControls(node);
+  updateExerciseControls();
+}
+
+function removeLastExercise() {
+  const cards = els.exerciseList.querySelectorAll(".exercise-card");
+  const lastCard = cards[cards.length - 1];
+
+  if (!lastCard) {
+    addExercise();
+    return;
+  }
+
+  lastCard.remove();
+  if (!els.exerciseList.children.length) addExercise();
+  updateExerciseControls();
+}
+
+function removeLastSet(card) {
+  const setsList = card.querySelector(".sets-list");
+  const rows = setsList.querySelectorAll(".set-row");
+  const lastRow = rows[rows.length - 1];
+
+  if (rows.length > 1) {
+    lastRow.remove();
+  } else if (lastRow) {
+    lastRow.querySelector(".set-weight").value = "";
+    lastRow.querySelector(".set-reps").value = "";
+    setRpe(lastRow, "");
+  }
+
+  renumberSets(setsList);
+  updateSetControls(card);
+}
+
+function updateExerciseControls() {
+  if (!els.removeExercise) return;
+  els.removeExercise.disabled = els.exerciseList.children.length <= 1;
+}
+
+function updateSetControls(card) {
+  const removeSet = card.querySelector(".remove-set");
+  if (!removeSet) return;
+  removeSet.disabled = card.querySelectorAll(".set-row").length < 1;
 }
 
 function populateExerciseSelect(select, selectedName = "") {

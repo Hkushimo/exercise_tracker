@@ -107,7 +107,10 @@
             <h2>Exercises</h2>
             <p>Add each movement, then log sets as you go.</p>
           </div>
-          <button class="secondary-button" type="button" id="addExerciseButton">Add Exercise</button>
+          <div class="section-actions">
+            <button class="secondary-button" type="button" id="addExerciseButton">Add Exercise</button>
+            <button class="danger-button" type="button" id="removeExerciseButton">Remove Exercise</button>
+          </div>
         </section>
 
         <div id="exerciseList" class="exercise-list" aria-live="polite"></div>
@@ -164,7 +167,7 @@
 
         <div class="exercise-actions">
           <button class="secondary-button add-set" type="button">Add Set</button>
-          <button class="danger-button remove-exercise" type="button">Remove Exercise</button>
+          <button class="danger-button remove-set" type="button">Remove Set</button>
         </div>
       </article>
     </template>
