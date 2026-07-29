@@ -344,8 +344,8 @@ function refreshExerciseOptions() {
 function addSet(setsList, data = {}) {
   const row = els.setTemplate.content.firstElementChild.cloneNode(true);
 
-  row.querySelector(".set-weight").value = data.weight ?? 0;
-  row.querySelector(".set-reps").value = data.reps ?? 0;
+  row.querySelector(".set-weight").value = data.weight ?? "";
+  row.querySelector(".set-reps").value = data.reps ?? "";
   setRpe(row, data.rpe ?? "");
 
   row.querySelectorAll(".set-weight, .set-reps").forEach((input) => {
