@@ -172,7 +172,6 @@ h2 {
 
 .setup-card,
 .settings-panel,
-.notes-card,
 .exercise-card {
   border: 1px solid var(--border);
   border-radius: 0.35rem;
@@ -181,8 +180,7 @@ h2 {
 }
 
 .setup-card,
-.settings-panel,
-.notes-card {
+.settings-panel {
   padding: 1rem;
 }
 
@@ -205,6 +203,27 @@ h2 {
 .settings-grid {
   display: grid;
   gap: 1rem;
+}
+
+.duration-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+.duration-panel span {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+.duration-panel strong {
+  color: var(--accent-dark);
+  font-size: 1.05rem;
 }
 
 label {
@@ -411,10 +430,6 @@ textarea {
   text-decoration: underline;
 }
 
-.notes-card {
-  margin-top: 1rem;
-}
-
 .form-message {
   min-height: 1.5rem;
   margin: 1rem 0;
@@ -516,7 +531,6 @@ textarea {
   .exercise-card,
   .setup-card,
   .settings-panel,
-  .notes-card,
   .modal-card {
     padding: 1.25rem;
   }

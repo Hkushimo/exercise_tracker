@@ -5,6 +5,8 @@ const STORAGE_KEYS = {
   settings: "workoutTrackerSettings",
 };
 
+const TIMER_REFRESH_MS = 30000;
+
 const PUSH_EXERCISES = [
   "Bench Press",
   "Incline Bench Press",
@@ -114,7 +116,7 @@ const els = {
   form: document.querySelector("#workoutForm"),
   date: document.querySelector("#workoutDate"),
   type: document.querySelector("#workoutType"),
-  notes: document.querySelector("#workoutNotes"),
+  duration: document.querySelector("#workoutDuration"),
   exerciseList: document.querySelector("#exerciseList"),
   addExercise: document.querySelector("#addExerciseButton"),
   formMessage: document.querySelector("#formMessage"),
@@ -136,6 +138,9 @@ const els = {
 let settings = loadSettings();
 let pendingPayload = null;
 let saveTimer = 0;
+let durationTimer = 0;
+let workoutStartedAt = null;
+let workoutFinishedAt = null;
 let deferredInstallPrompt = null;
 
 init();
@@ -167,6 +172,8 @@ function init() {
 
   els.form.addEventListener("input", saveDraftSoon);
   els.form.addEventListener("change", saveDraftSoon);
+  els.form.addEventListener("input", handleSetEntry);
+  els.form.addEventListener("change", handleSetEntry);
   els.form.addEventListener("submit", handleReview);
 
   els.settingsToggle.addEventListener("click", toggleSettings);
@@ -180,6 +187,8 @@ function init() {
       submitWorkout();
     }
   });
+
+  updateDurationDisplay();
 }
 
 function registerServiceWorker() {
@@ -332,7 +341,6 @@ function refreshExerciseOptions() {
   });
 }
 
-// Each new set inherits weight and reps from the previous set for faster entry.
 function addSet(setsList, data = {}) {
   const row = els.setTemplate.content.firstElementChild.cloneNode(true);
 
@@ -340,8 +348,13 @@ function addSet(setsList, data = {}) {
   row.querySelector(".set-reps").value = data.reps ?? 0;
   setRpe(row, data.rpe ?? "");
 
+  row.querySelectorAll(".set-weight, .set-reps").forEach((input) => {
+    input.addEventListener("focus", markWorkoutStarted);
+  });
+
   row.querySelectorAll(".rpe-option").forEach((button) => {
     button.addEventListener("click", () => {
+      markWorkoutStarted();
       const nextValue = row.querySelector(".set-rpe").value === button.dataset.rpe ? "" : button.dataset.rpe;
       setRpe(row, nextValue);
       saveDraftSoon();
@@ -380,6 +393,83 @@ function renumberSets(setsList) {
   });
 }
 
+function handleSetEntry(event) {
+  if (event.target.closest(".set-row")) {
+    markWorkoutStarted();
+  }
+}
+
+function markWorkoutStarted() {
+  if (!workoutStartedAt) {
+    workoutStartedAt = Date.now();
+    startDurationTicker();
+  }
+
+  workoutFinishedAt = null;
+  updateDurationDisplay();
+}
+
+function finalizeWorkoutTime() {
+  if (!workoutStartedAt) workoutStartedAt = Date.now();
+  workoutFinishedAt = Date.now();
+  updateDurationDisplay();
+}
+
+function resetWorkoutTime() {
+  workoutStartedAt = null;
+  workoutFinishedAt = null;
+  stopDurationTicker();
+  updateDurationDisplay();
+}
+
+function startDurationTicker() {
+  if (durationTimer) return;
+  durationTimer = window.setInterval(updateDurationDisplay, TIMER_REFRESH_MS);
+}
+
+function stopDurationTicker() {
+  window.clearInterval(durationTimer);
+  durationTimer = 0;
+}
+
+function workoutTiming() {
+  if (!workoutStartedAt) {
+    return {
+      startedAt: "",
+      finishedAt: "",
+      durationSeconds: 0,
+      duration: "",
+    };
+  }
+
+  const endTime = workoutFinishedAt || Date.now();
+  const durationSeconds = Math.max(0, Math.round((endTime - workoutStartedAt) / 1000));
+
+  return {
+    startedAt: new Date(workoutStartedAt).toISOString(),
+    finishedAt: workoutFinishedAt ? new Date(workoutFinishedAt).toISOString() : "",
+    durationSeconds,
+    duration: formatDuration(durationSeconds),
+  };
+}
+
+function updateDurationDisplay() {
+  if (!els.duration) return;
+
+  const timing = workoutTiming();
+  els.duration.textContent = timing.duration || "Not started";
+}
+
+function formatDuration(totalSeconds) {
+  const totalMinutes = Math.max(0, Math.round(totalSeconds / 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours && minutes) return `${hours}hr ${minutes}min`;
+  if (hours) return `${hours}hr`;
+  return `${minutes}min`;
+}
+
 // The draft includes incomplete rows; submissions only include completed sets.
 function collectWorkout({ includeIncomplete = true } = {}) {
   const exercises = [...els.exerciseList.querySelectorAll(".exercise-card")]
@@ -399,7 +489,6 @@ function collectWorkout({ includeIncomplete = true } = {}) {
             unit: settings.defaultUnit,
             reps: reps === "" ? "" : Number(reps),
             rpe,
-            notes: "",
           };
         })
         .filter((set) => includeIncomplete || isCompletedSet(set));
@@ -415,7 +504,7 @@ function collectWorkout({ includeIncomplete = true } = {}) {
   return {
     date: els.date.value,
     workoutType: els.type.value,
-    notes: els.notes.value.trim(),
+    ...workoutTiming(),
     exercises,
   };
 }
@@ -441,10 +530,13 @@ function handleReview(event) {
   event.preventDefault();
   clearMessage();
 
+  finalizeWorkoutTime();
   pendingPayload = collectWorkout({ includeIncomplete: false });
   const error = validateWorkout(pendingPayload);
 
   if (error) {
+    workoutFinishedAt = null;
+    updateDurationDisplay();
     showMessage(error, "error");
     return;
   }
@@ -471,10 +563,9 @@ function renderSummary(payload) {
   els.summaryContent.innerHTML = `
     <div class="summary-item">
       <h3>${escapeHtml(payload.workoutType)} - ${escapeHtml(payload.date)}</h3>
-      <p>${payload.exercises.length} exercise${payload.exercises.length === 1 ? "" : "s"} - ${totalSets} set${totalSets === 1 ? "" : "s"}</p>
+      <p>${payload.exercises.length} exercise${payload.exercises.length === 1 ? "" : "s"} - ${totalSets} set${totalSets === 1 ? "" : "s"} - ${escapeHtml(payload.duration)}</p>
     </div>
     ${items}
-    ${payload.notes ? `<div class="summary-item"><h3>Notes</h3><p>${escapeHtml(payload.notes)}</p></div>` : ""}
   `;
 }
 
@@ -546,7 +637,10 @@ function buildSubmissionRequest(payload) {
 function stripDraftFields(payload) {
   return {
     ...payload,
-    exercises: payload.exercises.map(({ name, sets }) => ({ name, sets })),
+    exercises: payload.exercises.map(({ name, sets }) => ({
+      name,
+      sets: sets.map(({ setNumber, weight, unit, reps, rpe }) => ({ setNumber, weight, unit, reps, rpe })),
+    })),
   };
 }
 
@@ -568,7 +662,7 @@ function setProcessing(isProcessing) {
 function resetForm(unit) {
   els.date.value = todayIso();
   els.type.value = "Push";
-  els.notes.value = "";
+  resetWorkoutTime();
   settings.defaultUnit = unit;
   els.defaultUnit.value = unit;
   els.exerciseList.replaceChildren();
@@ -602,13 +696,21 @@ function restoreDraft() {
 
     els.date.value = draft.date || todayIso();
     els.type.value = draft.workoutType || "Push";
-    els.notes.value = draft.notes || "";
+    workoutStartedAt = parseStoredTime(draft.startedAt);
+    workoutFinishedAt = parseStoredTime(draft.finishedAt);
+    if (workoutStartedAt && !workoutFinishedAt) startDurationTicker();
+    updateDurationDisplay();
     els.exerciseList.replaceChildren();
     (draft.exercises?.length ? draft.exercises : [{}]).forEach((exercise) => addExercise(exercise));
     return true;
   } catch {
     return false;
   }
+}
+
+function parseStoredTime(value) {
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? time : null;
 }
 
 function showMessage(message, type) {

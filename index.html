@@ -96,6 +96,10 @@
               </select>
             </label>
           </div>
+          <div class="duration-panel" aria-live="polite">
+            <span>Workout time</span>
+            <strong id="workoutDuration">Not started</strong>
+          </div>
         </section>
 
         <section class="section-heading">
@@ -107,13 +111,6 @@
         </section>
 
         <div id="exerciseList" class="exercise-list" aria-live="polite"></div>
-
-        <section class="notes-card">
-          <label>
-            <span>Workout notes <small>optional</small></span>
-            <textarea id="workoutNotes" rows="4" placeholder="Energy, sleep, form cues, or anything worth remembering"></textarea>
-          </label>
-        </section>
 
         <p class="form-message" id="formMessage" role="status" aria-live="polite"></p>
 
@@ -161,7 +158,6 @@
             <span>Weight</span>
             <span>Reps</span>
             <span>RPE</span>
-            <span></span>
           </div>
           <div class="sets-list"></div>
         </div>

@@ -44,7 +44,7 @@ For a personal or lightweight tracker, a Google Apps Script web app is the short
 3. Add this header row:
 
 ```text
-Submitted At | Date | Workout Type | Workout Notes | Exercise | Set Number | Weight | Unit | Reps | RPE | Set Notes
+Submitted At | Date | Workout Type | Started At | Finished At | Duration | Duration Seconds | Exercise | Set Number | Weight | Unit | Reps | RPE
 ```
 
 4. In the Sheet, open `Extensions > Apps Script`.
@@ -79,14 +79,16 @@ function doPost(e) {
           submittedAt,
           payload.date,
           payload.workoutType,
-          payload.notes || "",
+          payload.startedAt || "",
+          payload.finishedAt || "",
+          payload.duration || "",
+          payload.durationSeconds || 0,
           exercise.name,
           set.setNumber,
           set.weight,
           set.unit,
           set.reps,
           set.rpe || "",
-          set.notes || "",
         ]);
       });
     });
@@ -131,7 +133,10 @@ This app detects Apps Script URLs that include `script.google.com/macros/` and s
 {
   "date": "2026-07-29",
   "workoutType": "Push",
-  "notes": "Felt strong today",
+  "startedAt": "2026-07-29T21:10:00.000Z",
+  "finishedAt": "2026-07-29T22:13:00.000Z",
+  "durationSeconds": 3780,
+  "duration": "1hr 3min",
   "exercises": [
     {
       "name": "Bench Press",
@@ -141,8 +146,7 @@ This app detects Apps Script URLs that include `script.google.com/macros/` and s
           "weight": 135,
           "unit": "lb",
           "reps": 10,
-          "rpe": "Hard",
-          "notes": ""
+          "rpe": "Hard"
         }
       ]
     }
