@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A lightweight workout tracker for logging exercises and sets.">
+    <title>Workout Tracker</title>
+    <script>
+      try {
+        const settings = JSON.parse(localStorage.getItem("workoutTrackerSettings"));
+        document.documentElement.dataset.theme = settings?.theme || "system";
+      } catch {
+        document.documentElement.dataset.theme = "system";
+      }
+    </script>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to workout form</a>
+
+    <main id="main" class="app-shell">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Workout log</p>
+          <h1>Track today's session</h1>
+        </div>
+        <button class="ghost-button" type="button" id="settingsToggle" aria-expanded="false" aria-controls="settingsPanel">
+          Settings
+        </button>
+      </header>
+
+      <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsHeading" hidden>
+        <h2 id="settingsHeading">Settings</h2>
+        <div class="settings-grid">
+          <label>
+            <span>Default weight unit</span>
+            <select id="defaultUnit">
+              <option value="lb">lb</option>
+              <option value="kg">kg</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Theme</span>
+            <select id="themeMode">
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Backend API URL</span>
+            <input id="apiUrl" type="url" inputmode="url" placeholder="https://api.example.com/api/workouts">
+          </label>
+
+          <label>
+            <span>API access token <small>optional</small></span>
+            <input id="apiToken" type="password" autocomplete="off" placeholder="Stored on this device only">
+          </label>
+        </div>
+        <p class="settings-note">No Google credentials or secrets belong in this frontend.</p>
+      </section>
+
+      <form id="workoutForm" novalidate>
+        <section class="setup-card" aria-labelledby="setupHeading">
+          <h2 id="setupHeading">Setup</h2>
+          <div class="setup-grid">
+            <label>
+              <span>Date</span>
+              <input id="workoutDate" type="date" required>
+            </label>
+
+            <label>
+              <span>Workout type</span>
+              <select id="workoutType" required>
+                <option>Push</option>
+                <option>Pull</option>
+                <option>Legs</option>
+                <option>Upper Body</option>
+                <option>Lower Body</option>
+                <option>Full Body</option>
+                <option>Cardio</option>
+                <option>Custom</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="section-heading">
+          <div>
+            <h2>Exercises</h2>
+            <p>Add each movement, then log sets as you go.</p>
+          </div>
+          <button class="secondary-button" type="button" id="addExerciseButton">Add Exercise</button>
+        </section>
+
+        <div id="exerciseList" class="exercise-list" aria-live="polite"></div>
+
+        <section class="notes-card">
+          <label>
+            <span>Workout notes <small>optional</small></span>
+            <textarea id="workoutNotes" rows="4" placeholder="Energy, sleep, form cues, or anything worth remembering"></textarea>
+          </label>
+        </section>
+
+        <p class="form-message" id="formMessage" role="status" aria-live="polite"></p>
+
+        <div class="submit-bar">
+          <button class="primary-button" type="submit" id="submitButton">Submit Workout</button>
+        </div>
+      </form>
+    </main>
+
+    <dialog id="summaryModal" class="modal">
+      <form method="dialog" class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Review</p>
+            <h2>Submit workout?</h2>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Close review">x</button>
+        </div>
+        <div id="summaryContent" class="summary-content"></div>
+        <div class="modal-actions">
+          <button class="ghost-button" value="cancel">Cancel</button>
+          <button class="primary-button" id="confirmSubmitButton" value="confirm">Confirm Submit</button>
+        </div>
+      </form>
+    </dialog>
+
+    <template id="exerciseTemplate">
+      <article class="exercise-card">
+        <div class="exercise-header">
+          <div class="exercise-fields">
+            <label>
+              <span>Exercise</span>
+              <select class="exercise-select"></select>
+            </label>
+            <label class="custom-exercise-wrap" hidden>
+              <span>Custom exercise name</span>
+              <input class="custom-exercise" type="text" placeholder="Exercise name">
+            </label>
+          </div>
+        </div>
+
+        <div class="sets-wrap">
+          <div class="sets-header" aria-hidden="true">
+            <span>Set</span>
+            <span>Weight</span>
+            <span>Reps</span>
+            <span>RPE</span>
+            <span></span>
+          </div>
+          <div class="sets-list"></div>
+        </div>
+
+        <div class="exercise-actions">
+          <button class="secondary-button add-set" type="button">Add Set</button>
+          <button class="danger-button remove-exercise" type="button">Remove Exercise</button>
+        </div>
+      </article>
+    </template>
+
+    <template id="setTemplate">
+      <div class="set-row">
+        <span class="set-number"></span>
+        <label data-label="Weight">
+          <span class="sr-only">Weight</span>
+          <input class="set-weight" type="number" inputmode="decimal" min="0" step="0.5" placeholder="0">
+        </label>
+        <label data-label="Reps">
+          <span class="sr-only">Reps</span>
+          <input class="set-reps" type="number" inputmode="numeric" min="0" step="1" placeholder="0">
+        </label>
+        <div class="rpe-control" data-label="RPE" role="group" aria-label="RPE optional">
+          <input class="set-rpe" type="hidden">
+          <button class="rpe-option" type="button" data-rpe="7">Easy</button>
+          <button class="rpe-option" type="button" data-rpe="8">Hard</button>
+          <button class="rpe-option" type="button" data-rpe="9">Max</button>
+        </div>
+      </div>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
