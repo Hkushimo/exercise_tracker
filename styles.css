@@ -208,12 +208,21 @@ h2 {
 
 .duration-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 1rem;
+  grid-template-columns: minmax(9rem, 12rem) auto;
+  align-items: end;
+  justify-content: start;
+  column-gap: 1rem;
   margin-top: 1rem;
   border-top: 1px solid var(--border);
   padding-top: 1rem;
+}
+
+.duration-panel label {
+  width: min(100%, 12rem);
+}
+
+.duration-panel input {
+  min-width: 0;
 }
 
 .duration-panel span {
@@ -591,6 +600,10 @@ textarea {
 }
 
 @media (max-width: 619px) {
+  .duration-panel {
+    grid-template-columns: minmax(8.5rem, 12rem) auto;
+  }
+
   .sets-wrap {
     overflow-x: visible;
   }
