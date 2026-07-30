@@ -358,6 +358,8 @@ function populateExerciseSelect(select, selectedName = "") {
   const suggestions = exerciseSuggestions();
   select.replaceChildren();
 
+  select.add(new Option("Choose exercise", ""));
+
   suggestions.forEach((exercise) => {
     select.add(new Option(exercise, exercise));
   });
@@ -368,6 +370,8 @@ function populateExerciseSelect(select, selectedName = "") {
     select.value = selectedName;
   } else if (selectedName) {
     select.value = "Custom exercise";
+  } else {
+    select.value = "";
   }
 }
 
@@ -668,7 +672,7 @@ function resetForm(unit) {
 }
 
 function clearWorkout() {
-  if (!confirm("Clear this workout?")) return;
+  if (!confirm("Restart this workout?")) return;
 
   const keptUnit = settings.defaultUnit;
   localStorage.removeItem(STORAGE_KEYS.draft);
