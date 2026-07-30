@@ -207,9 +207,9 @@ h2 {
 }
 
 .duration-panel {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
   margin-top: 1rem;
   border-top: 1px solid var(--border);
@@ -222,9 +222,24 @@ h2 {
   font-weight: 750;
 }
 
-.duration-panel strong {
+.duration-panel output {
   color: var(--accent-dark);
   font-size: 1.05rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.exercise-header {
+  align-items: start;
+}
+
+.exercise-header .icon-button {
+  flex: 0 0 44px;
+  margin-top: 1.75rem;
+}
+
+.exercise-header .exercise-fields {
+  min-width: 0;
 }
 
 label {
@@ -274,7 +289,12 @@ textarea {
   margin-bottom: 0;
 }
 
-.section-actions,
+.section-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
 .exercise-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -451,6 +471,8 @@ textarea {
 
 .submit-bar {
   position: sticky;
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
   bottom: 0;
   margin: 0 -1rem;
   padding: 0.8rem 1rem 1rem;
@@ -460,7 +482,8 @@ textarea {
   backdrop-filter: blur(12px);
 }
 
-.submit-bar .primary-button {
+.submit-bar .primary-button,
+.submit-bar .danger-button {
   width: 100%;
 }
 
@@ -549,7 +572,6 @@ textarea {
 @media (max-width: 520px) {
   .page-header,
   .section-heading,
-  .exercise-header,
   .header-actions,
   .modal-actions {
     align-items: stretch;

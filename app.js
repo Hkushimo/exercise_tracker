@@ -5,8 +5,6 @@ const STORAGE_KEYS = {
   settings: "workoutTrackerSettings",
 };
 
-const TIMER_REFRESH_MS = 30000;
-
 const PUSH_EXERCISES = [
   "Bench Press",
   "Incline Bench Press",
@@ -116,10 +114,11 @@ const els = {
   form: document.querySelector("#workoutForm"),
   date: document.querySelector("#workoutDate"),
   type: document.querySelector("#workoutType"),
+  durationInput: document.querySelector("#workoutDurationInput"),
   duration: document.querySelector("#workoutDuration"),
   exerciseList: document.querySelector("#exerciseList"),
   addExercise: document.querySelector("#addExerciseButton"),
-  removeExercise: document.querySelector("#removeExerciseButton"),
+  clearWorkout: document.querySelector("#clearWorkoutButton"),
   formMessage: document.querySelector("#formMessage"),
   submit: document.querySelector("#submitButton"),
   installButton: document.querySelector("#installButton"),
@@ -139,9 +138,6 @@ const els = {
 let settings = loadSettings();
 let pendingPayload = null;
 let saveTimer = 0;
-let durationTimer = 0;
-let workoutStartedAt = null;
-let workoutFinishedAt = null;
 let deferredInstallPrompt = null;
 
 init();
@@ -158,17 +154,11 @@ function init() {
 
   const restored = restoreDraft();
   if (!restored) {
-    addExercise();
+    addExercise({}, { position: "end" });
   }
 
   els.addExercise.addEventListener("click", () => {
-    addExercise();
-    updateExerciseControls();
-    saveDraftSoon();
-  });
-
-  els.removeExercise.addEventListener("click", () => {
-    removeLastExercise();
+    addExercise({}, { position: "start", focus: true });
     saveDraftSoon();
   });
 
@@ -179,9 +169,10 @@ function init() {
 
   els.form.addEventListener("input", saveDraftSoon);
   els.form.addEventListener("change", saveDraftSoon);
-  els.form.addEventListener("input", handleSetEntry);
-  els.form.addEventListener("change", handleSetEntry);
   els.form.addEventListener("submit", handleReview);
+  els.durationInput.addEventListener("input", updateDurationDisplay);
+  els.durationInput.addEventListener("change", updateDurationDisplay);
+  els.clearWorkout.addEventListener("click", clearWorkout);
 
   els.settingsToggle.addEventListener("click", toggleSettings);
   [els.defaultUnit, els.themeMode, els.apiUrl, els.apiToken].forEach((input) => {
@@ -281,7 +272,7 @@ function exerciseSuggestions() {
 }
 
 // Exercise cards own their set rows, which keeps add/remove behavior localized.
-function addExercise(data = {}) {
+function addExercise(data = {}, options = {}) {
   const node = els.exerciseTemplate.content.firstElementChild.cloneNode(true);
   const exerciseSelect = node.querySelector(".exercise-select");
   const customWrap = node.querySelector(".custom-exercise-wrap");
@@ -310,7 +301,16 @@ function addExercise(data = {}) {
     saveDraftSoon();
   });
 
-  els.exerciseList.append(node);
+  node.querySelector(".remove-exercise").addEventListener("click", () => {
+    removeExercise(node);
+    saveDraftSoon();
+  });
+
+  if (options.position === "start") {
+    els.exerciseList.prepend(node);
+  } else {
+    els.exerciseList.append(node);
+  }
 
   if (data.sets?.length) {
     data.sets.forEach((set) => addSet(setsList, set));
@@ -320,21 +320,15 @@ function addExercise(data = {}) {
 
   renumberSets(setsList);
   updateSetControls(node);
-  updateExerciseControls();
+
+  if (options.focus) {
+    requestAnimationFrame(() => exerciseSelect.focus());
+  }
 }
 
-function removeLastExercise() {
-  const cards = els.exerciseList.querySelectorAll(".exercise-card");
-  const lastCard = cards[cards.length - 1];
-
-  if (!lastCard) {
-    addExercise();
-    return;
-  }
-
-  lastCard.remove();
-  if (!els.exerciseList.children.length) addExercise();
-  updateExerciseControls();
+function removeExercise(card) {
+  card.remove();
+  if (!els.exerciseList.children.length) addExercise({}, { position: "end" });
 }
 
 function removeLastSet(card) {
@@ -352,11 +346,6 @@ function removeLastSet(card) {
 
   renumberSets(setsList);
   updateSetControls(card);
-}
-
-function updateExerciseControls() {
-  if (!els.removeExercise) return;
-  els.removeExercise.disabled = els.exerciseList.children.length <= 1;
 }
 
 function updateSetControls(card) {
@@ -399,13 +388,8 @@ function addSet(setsList, data = {}) {
   row.querySelector(".set-reps").value = data.reps ?? "";
   setRpe(row, data.rpe ?? "");
 
-  row.querySelectorAll(".set-weight, .set-reps").forEach((input) => {
-    input.addEventListener("focus", markWorkoutStarted);
-  });
-
   row.querySelectorAll(".rpe-option").forEach((button) => {
     button.addEventListener("click", () => {
-      markWorkoutStarted();
       const nextValue = row.querySelector(".set-rpe").value === button.dataset.rpe ? "" : button.dataset.rpe;
       setRpe(row, nextValue);
       saveDraftSoon();
@@ -444,61 +428,17 @@ function renumberSets(setsList) {
   });
 }
 
-function handleSetEntry(event) {
-  if (event.target.closest(".set-row")) {
-    markWorkoutStarted();
-  }
-}
-
-function markWorkoutStarted() {
-  if (!workoutStartedAt) {
-    workoutStartedAt = Date.now();
-    startDurationTicker();
-  }
-
-  workoutFinishedAt = null;
-  updateDurationDisplay();
-}
-
-function finalizeWorkoutTime() {
-  if (!workoutStartedAt) workoutStartedAt = Date.now();
-  workoutFinishedAt = Date.now();
-  updateDurationDisplay();
-}
-
 function resetWorkoutTime() {
-  workoutStartedAt = null;
-  workoutFinishedAt = null;
-  stopDurationTicker();
+  els.durationInput.value = "00:00";
   updateDurationDisplay();
-}
-
-function startDurationTicker() {
-  if (durationTimer) return;
-  durationTimer = window.setInterval(updateDurationDisplay, TIMER_REFRESH_MS);
-}
-
-function stopDurationTicker() {
-  window.clearInterval(durationTimer);
-  durationTimer = 0;
 }
 
 function workoutTiming() {
-  if (!workoutStartedAt) {
-    return {
-      startedAt: "",
-      finishedAt: "",
-      durationSeconds: 0,
-      duration: "",
-    };
-  }
-
-  const endTime = workoutFinishedAt || Date.now();
-  const durationSeconds = Math.max(0, Math.round((endTime - workoutStartedAt) / 1000));
+  const durationSeconds = durationInputSeconds();
 
   return {
-    startedAt: new Date(workoutStartedAt).toISOString(),
-    finishedAt: workoutFinishedAt ? new Date(workoutFinishedAt).toISOString() : "",
+    startedAt: "",
+    finishedAt: "",
     durationSeconds,
     duration: formatDuration(durationSeconds),
   };
@@ -506,9 +446,19 @@ function workoutTiming() {
 
 function updateDurationDisplay() {
   if (!els.duration) return;
+  els.duration.textContent = formatDuration(durationInputSeconds());
+}
 
-  const timing = workoutTiming();
-  els.duration.textContent = timing.duration || "Not started";
+function durationInputSeconds() {
+  const [hours = "0", minutes = "0"] = (els.durationInput.value || "00:00").split(":");
+  return (Number(hours) * 60 + Number(minutes)) * 60;
+}
+
+function durationInputValue(totalSeconds) {
+  const totalMinutes = Math.max(0, Math.round(Number(totalSeconds || 0) / 60));
+  const hours = String(Math.min(23, Math.floor(totalMinutes / 60))).padStart(2, "0");
+  const minutes = String(totalMinutes % 60).padStart(2, "0");
+  return `${hours}:${minutes}`;
 }
 
 function formatDuration(totalSeconds) {
@@ -581,13 +531,10 @@ function handleReview(event) {
   event.preventDefault();
   clearMessage();
 
-  finalizeWorkoutTime();
   pendingPayload = collectWorkout({ includeIncomplete: false });
   const error = validateWorkout(pendingPayload);
 
   if (error) {
-    workoutFinishedAt = null;
-    updateDurationDisplay();
     showMessage(error, "error");
     return;
   }
@@ -717,7 +664,17 @@ function resetForm(unit) {
   settings.defaultUnit = unit;
   els.defaultUnit.value = unit;
   els.exerciseList.replaceChildren();
-  addExercise();
+  addExercise({}, { position: "end" });
+}
+
+function clearWorkout() {
+  if (!confirm("Clear this workout?")) return;
+
+  const keptUnit = settings.defaultUnit;
+  localStorage.removeItem(STORAGE_KEYS.draft);
+  resetForm(keptUnit);
+  clearMessage();
+  els.date.focus();
 }
 
 function showSuccessActions() {
@@ -747,21 +704,14 @@ function restoreDraft() {
 
     els.date.value = draft.date || todayIso();
     els.type.value = draft.workoutType || "Push";
-    workoutStartedAt = parseStoredTime(draft.startedAt);
-    workoutFinishedAt = parseStoredTime(draft.finishedAt);
-    if (workoutStartedAt && !workoutFinishedAt) startDurationTicker();
+    els.durationInput.value = durationInputValue(draft.durationSeconds);
     updateDurationDisplay();
     els.exerciseList.replaceChildren();
-    (draft.exercises?.length ? draft.exercises : [{}]).forEach((exercise) => addExercise(exercise));
+    (draft.exercises?.length ? draft.exercises : [{}]).forEach((exercise) => addExercise(exercise, { position: "end" }));
     return true;
   } catch {
     return false;
   }
-}
-
-function parseStoredTime(value) {
-  const time = Date.parse(value);
-  return Number.isFinite(time) ? time : null;
 }
 
 function showMessage(message, type) {

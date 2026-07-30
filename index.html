@@ -96,9 +96,12 @@
               </select>
             </label>
           </div>
-          <div class="duration-panel" aria-live="polite">
-            <span>Workout time</span>
-            <strong id="workoutDuration">Not started</strong>
+          <div class="duration-panel">
+            <label for="workoutDurationInput">
+              <span>Workout time</span>
+              <input id="workoutDurationInput" type="time" step="60" value="00:00">
+            </label>
+            <output id="workoutDuration" for="workoutDurationInput">0min</output>
           </div>
         </section>
 
@@ -109,7 +112,6 @@
           </div>
           <div class="section-actions">
             <button class="secondary-button" type="button" id="addExerciseButton">Add Exercise</button>
-            <button class="danger-button" type="button" id="removeExerciseButton">Remove Exercise</button>
           </div>
         </section>
 
@@ -118,6 +120,7 @@
         <p class="form-message" id="formMessage" role="status" aria-live="polite"></p>
 
         <div class="submit-bar">
+          <button class="danger-button" type="button" id="clearWorkoutButton">Clear Workout</button>
           <button class="primary-button" type="submit" id="submitButton">Submit Workout</button>
         </div>
       </form>
@@ -153,6 +156,7 @@
               <input class="custom-exercise" type="text" placeholder="Exercise name">
             </label>
           </div>
+          <button class="icon-button remove-exercise" type="button" aria-label="Remove exercise">x</button>
         </div>
 
         <div class="sets-wrap">

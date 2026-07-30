@@ -133,8 +133,8 @@ This app detects Apps Script URLs that include `script.google.com/macros/` and s
 {
   "date": "2026-07-29",
   "workoutType": "Push",
-  "startedAt": "2026-07-29T21:10:00.000Z",
-  "finishedAt": "2026-07-29T22:13:00.000Z",
+  "startedAt": "",
+  "finishedAt": "",
   "durationSeconds": 3780,
   "duration": "1hr 3min",
   "exercises": [
