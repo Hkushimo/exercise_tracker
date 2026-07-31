@@ -115,8 +115,7 @@ const els = {
   form: document.querySelector("#workoutForm"),
   date: document.querySelector("#workoutDate"),
   type: document.querySelector("#workoutType"),
-  durationHours: document.querySelector("#workoutDurationHours"),
-  durationMinutes: document.querySelector("#workoutDurationMinutes"),
+  startTime: document.querySelector("#workoutStartTime"),
   duration: document.querySelector("#workoutDuration"),
   exerciseList: document.querySelector("#exerciseList"),
   addExercise: document.querySelector("#addExerciseButton"),
@@ -164,6 +163,7 @@ async function init() {
 
   const restored = restoreDraft();
   if (!restored) {
+    resetWorkoutTime();
     addExercise({}, { position: "end" });
   }
 
@@ -171,6 +171,8 @@ async function init() {
     addExercise({}, { position: "start", focus: true });
     saveDraftSoon();
   });
+
+  els.date.addEventListener("change", updateDurationDisplay);
 
   els.type.addEventListener("change", () => {
     refreshExerciseOptions();
@@ -180,9 +182,13 @@ async function init() {
   els.form.addEventListener("input", saveDraftSoon);
   els.form.addEventListener("change", saveDraftSoon);
   els.form.addEventListener("submit", handleReview);
-  [els.durationHours, els.durationMinutes].forEach((input) => {
-    input.addEventListener("input", updateDurationDisplay);
-    input.addEventListener("change", updateDurationDisplay);
+  els.startTime.addEventListener("input", () => {
+    updateDurationDisplay();
+    saveDraftSoon();
+  });
+  els.startTime.addEventListener("change", () => {
+    updateDurationDisplay();
+    saveDraftSoon();
   });
   els.clearWorkout.addEventListener("click", clearWorkout);
   els.referenceForm.addEventListener("submit", submitReferenceExercise);
@@ -200,6 +206,7 @@ async function init() {
   });
 
   updateDurationDisplay();
+  window.setInterval(updateDurationDisplay, 30000);
 }
 
 function registerServiceWorker() {
@@ -555,17 +562,18 @@ function renumberSets(setsList) {
 }
 
 function resetWorkoutTime() {
-  els.durationHours.value = "";
-  els.durationMinutes.value = "";
+  els.startTime.value = currentTimeValue();
   updateDurationDisplay();
 }
 
 function workoutTiming() {
-  const durationSeconds = durationInputSeconds();
+  const start = startDateFromInput();
+  const finish = new Date();
+  const durationSeconds = elapsedSeconds(start, finish);
 
   return {
-    startedAt: "",
-    finishedAt: "",
+    startedAt: start ? start.toISOString() : "",
+    finishedAt: finish.toISOString(),
     durationSeconds,
     duration: formatDuration(durationSeconds),
   };
@@ -573,29 +581,34 @@ function workoutTiming() {
 
 function updateDurationDisplay() {
   if (!els.duration) return;
-  els.duration.textContent = formatDuration(durationInputSeconds());
+  els.duration.textContent = formatDuration(elapsedSeconds(startDateFromInput(), new Date()));
 }
 
-function durationInputSeconds() {
-  const hours = clampDurationPart(els.durationHours.value, 0, 12);
-  const minutes = clampDurationPart(els.durationMinutes.value, 0, 59);
-  return (hours * 60 + minutes) * 60;
+function startDateFromInput() {
+  if (!els.date.value || !els.startTime.value) return null;
+  return new Date(`${els.date.value}T${els.startTime.value}`);
 }
 
-function setDurationInputs(totalSeconds) {
-  const totalMinutes = Math.max(0, Math.round(Number(totalSeconds || 0) / 60));
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  els.durationHours.value = hours ? String(hours) : "";
-  els.durationMinutes.value = minutes ? String(minutes) : "";
+function elapsedSeconds(start, finish) {
+  if (!start || Number.isNaN(start.getTime())) return 0;
+  const end = finish || new Date();
+  return Math.max(0, Math.round((end.getTime() - start.getTime()) / 1000));
 }
 
-function clampDurationPart(value, min, max) {
-  if (value === "") return 0;
-  const number = Number(value);
-  if (!Number.isFinite(number)) return 0;
-  return Math.min(max, Math.max(min, Math.trunc(number)));
+function currentTimeValue(date = new Date()) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function timeValueFromIso(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return currentTimeValue(date);
+}
+
+function startTimeFromElapsed(totalSeconds) {
+  const start = new Date(Date.now() - Math.max(0, Number(totalSeconds || 0)) * 1000);
+  return currentTimeValue(start);
 }
 
 function formatDuration(totalSeconds) {
@@ -640,6 +653,7 @@ function collectWorkout({ includeIncomplete = true } = {}) {
   return {
     date: els.date.value,
     workoutType: els.type.value,
+    startTime: els.startTime.value,
     ...workoutTiming(),
     exercises,
   };
@@ -651,6 +665,7 @@ function isCompletedSet(set) {
 
 function validateWorkout(payload) {
   if (!payload.date) return "Choose a workout date.";
+  if (!payload.startTime) return "Choose a workout start time.";
   if (!payload.exercises.length) return "Add at least one exercise.";
   if (payload.exercises.some((exercise) => !exercise.name)) return "Choose an exercise for each exercise card.";
 
@@ -710,6 +725,7 @@ async function submitWorkout() {
   clearMessage();
 
   try {
+    pendingPayload = collectWorkout({ includeIncomplete: false });
     const request = buildSubmissionRequest(pendingPayload);
     const response = await fetch(settings.apiUrl || API_URL, {
       method: "POST",
@@ -772,8 +788,9 @@ function buildApiRequest(payload) {
 }
 
 function stripDraftFields(payload) {
+  const { startTime, ...submission } = payload;
   return {
-    ...payload,
+    ...submission,
     exercises: payload.exercises.map(({ name, sets }) => ({
       name,
       sets: sets.map(({ setNumber, weight, unit, reps, rpe }) => ({ setNumber, weight, unit, reps, rpe })),
@@ -848,7 +865,7 @@ function restoreDraft() {
 
     els.date.value = draft.date || todayIso();
     els.type.value = draft.workoutType || "Push";
-    setDurationInputs(draft.durationSeconds);
+    els.startTime.value = draft.startTime || timeValueFromIso(draft.startedAt) || startTimeFromElapsed(draft.durationSeconds);
     updateDurationDisplay();
     els.exerciseList.replaceChildren();
     (draft.exercises?.length ? draft.exercises : [{}]).forEach((exercise) => addExercise(exercise, { position: "end" }));

@@ -126,18 +126,11 @@
             </label>
           </div>
           <div class="duration-panel">
-            <fieldset class="duration-fieldset">
-              <legend>Workout time</legend>
-              <label>
-                <span>Hours</span>
-                <input id="workoutDurationHours" type="number" inputmode="numeric" min="0" max="12" step="1" placeholder="0">
-              </label>
-              <label>
-                <span>Minutes</span>
-                <input id="workoutDurationMinutes" type="number" inputmode="numeric" min="0" max="59" step="1" placeholder="0">
-              </label>
-            </fieldset>
-            <output id="workoutDuration" for="workoutDurationHours workoutDurationMinutes">0min</output>
+            <label for="workoutStartTime">
+              <span>Start time</span>
+              <input id="workoutStartTime" type="time" step="60">
+            </label>
+            <output id="workoutDuration" for="workoutStartTime">0min</output>
           </div>
         </section>
 
