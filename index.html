@@ -147,12 +147,19 @@
       <article class="exercise-card">
         <div class="exercise-header">
           <div class="exercise-fields">
-            <label>
+            <div class="exercise-mode-row">
               <span>Exercise</span>
+              <label class="custom-toggle">
+                <input class="custom-exercise-toggle" type="checkbox">
+                <span>Custom</span>
+              </label>
+            </div>
+            <label class="exercise-select-wrap">
+              <span class="sr-only">Exercise</span>
               <select class="exercise-select" autocomplete="off"></select>
             </label>
             <label class="custom-exercise-wrap" hidden>
-              <span>Custom exercise name</span>
+              <span class="sr-only">Custom exercise name</span>
               <input class="custom-exercise" type="text" autocomplete="off" placeholder="Exercise name">
             </label>
           </div>
