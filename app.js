@@ -115,7 +115,8 @@ const els = {
   form: document.querySelector("#workoutForm"),
   date: document.querySelector("#workoutDate"),
   type: document.querySelector("#workoutType"),
-  durationInput: document.querySelector("#workoutDurationInput"),
+  durationHours: document.querySelector("#workoutDurationHours"),
+  durationMinutes: document.querySelector("#workoutDurationMinutes"),
   duration: document.querySelector("#workoutDuration"),
   exerciseList: document.querySelector("#exerciseList"),
   addExercise: document.querySelector("#addExerciseButton"),
@@ -179,8 +180,10 @@ async function init() {
   els.form.addEventListener("input", saveDraftSoon);
   els.form.addEventListener("change", saveDraftSoon);
   els.form.addEventListener("submit", handleReview);
-  els.durationInput.addEventListener("input", updateDurationDisplay);
-  els.durationInput.addEventListener("change", updateDurationDisplay);
+  [els.durationHours, els.durationMinutes].forEach((input) => {
+    input.addEventListener("input", updateDurationDisplay);
+    input.addEventListener("change", updateDurationDisplay);
+  });
   els.clearWorkout.addEventListener("click", clearWorkout);
   els.referenceForm.addEventListener("submit", submitReferenceExercise);
 
@@ -552,7 +555,8 @@ function renumberSets(setsList) {
 }
 
 function resetWorkoutTime() {
-  els.durationInput.value = "00:00";
+  els.durationHours.value = "";
+  els.durationMinutes.value = "";
   updateDurationDisplay();
 }
 
@@ -573,15 +577,25 @@ function updateDurationDisplay() {
 }
 
 function durationInputSeconds() {
-  const [hours = "0", minutes = "0"] = (els.durationInput.value || "00:00").split(":");
-  return (Number(hours) * 60 + Number(minutes)) * 60;
+  const hours = clampDurationPart(els.durationHours.value, 0, 12);
+  const minutes = clampDurationPart(els.durationMinutes.value, 0, 59);
+  return (hours * 60 + minutes) * 60;
 }
 
-function durationInputValue(totalSeconds) {
+function setDurationInputs(totalSeconds) {
   const totalMinutes = Math.max(0, Math.round(Number(totalSeconds || 0) / 60));
-  const hours = String(Math.min(23, Math.floor(totalMinutes / 60))).padStart(2, "0");
-  const minutes = String(totalMinutes % 60).padStart(2, "0");
-  return `${hours}:${minutes}`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  els.durationHours.value = hours ? String(hours) : "";
+  els.durationMinutes.value = minutes ? String(minutes) : "";
+}
+
+function clampDurationPart(value, min, max) {
+  if (value === "") return 0;
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Math.min(max, Math.max(min, Math.trunc(number)));
 }
 
 function formatDuration(totalSeconds) {
@@ -834,7 +848,7 @@ function restoreDraft() {
 
     els.date.value = draft.date || todayIso();
     els.type.value = draft.workoutType || "Push";
-    els.durationInput.value = durationInputValue(draft.durationSeconds);
+    setDurationInputs(draft.durationSeconds);
     updateDurationDisplay();
     els.exerciseList.replaceChildren();
     (draft.exercises?.length ? draft.exercises : [{}]).forEach((exercise) => addExercise(exercise, { position: "end" }));
