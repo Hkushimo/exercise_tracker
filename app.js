@@ -275,17 +275,21 @@ function exerciseSuggestions() {
 function addExercise(data = {}, options = {}) {
   const node = els.exerciseTemplate.content.firstElementChild.cloneNode(true);
   const exerciseSelect = node.querySelector(".exercise-select");
-  const customWrap = node.querySelector(".custom-exercise-wrap");
+  const customToggle = node.querySelector(".custom-exercise-toggle");
   const customInput = node.querySelector(".custom-exercise");
   const setsList = node.querySelector(".sets-list");
 
   populateExerciseSelect(exerciseSelect, data.name);
   customInput.value = data.isCustom ? data.name || "" : "";
-  customWrap.hidden = exerciseSelect.value !== "Custom exercise";
+  setCustomMode(node, Boolean(data.isCustom));
 
   exerciseSelect.addEventListener("change", () => {
-    customWrap.hidden = exerciseSelect.value !== "Custom exercise";
-    if (!customWrap.hidden) customInput.focus();
+    saveDraftSoon();
+  });
+
+  customToggle.addEventListener("change", () => {
+    setCustomMode(node, customToggle.checked);
+    if (customToggle.checked) customInput.focus();
     saveDraftSoon();
   });
 
@@ -364,24 +368,31 @@ function populateExerciseSelect(select, selectedName = "") {
     select.add(new Option(exercise, exercise));
   });
 
-  select.add(new Option("Custom exercise", "Custom exercise"));
-
   if (selectedName && suggestions.includes(selectedName)) {
     select.value = selectedName;
-  } else if (selectedName) {
-    select.value = "Custom exercise";
   } else {
     select.value = "";
   }
+}
+
+function setCustomMode(card, isCustom) {
+  const customWrap = card.querySelector(".custom-exercise-wrap");
+  const customToggle = card.querySelector(".custom-exercise-toggle");
+  const exerciseSelect = card.querySelector(".exercise-select");
+
+  customToggle.checked = isCustom;
+  customWrap.hidden = !isCustom;
+  exerciseSelect.disabled = isCustom;
 }
 
 function refreshExerciseOptions() {
   document.querySelectorAll(".exercise-card").forEach((card) => {
     const select = card.querySelector(".exercise-select");
     const custom = card.querySelector(".custom-exercise");
-    const currentName = select.value === "Custom exercise" ? custom.value.trim() : select.value;
+    const isCustom = card.querySelector(".custom-exercise-toggle").checked;
+    const currentName = isCustom ? custom.value.trim() : select.value;
     populateExerciseSelect(select, currentName);
-    card.querySelector(".custom-exercise-wrap").hidden = select.value !== "Custom exercise";
+    setCustomMode(card, isCustom);
   });
 }
 
@@ -480,8 +491,9 @@ function collectWorkout({ includeIncomplete = true } = {}) {
   const exercises = [...els.exerciseList.querySelectorAll(".exercise-card")]
     .map((card) => {
       const select = card.querySelector(".exercise-select");
+      const isCustom = card.querySelector(".custom-exercise-toggle").checked;
       const customName = card.querySelector(".custom-exercise").value.trim();
-      const name = select.value === "Custom exercise" ? customName : select.value;
+      const name = isCustom ? customName : select.value;
       const sets = [...card.querySelectorAll(".set-row")]
         .map((row, index) => {
           const weight = row.querySelector(".set-weight").value;
@@ -500,7 +512,7 @@ function collectWorkout({ includeIncomplete = true } = {}) {
 
       return {
         name,
-        isCustom: select.value === "Custom exercise",
+        isCustom,
         sets,
       };
     })
