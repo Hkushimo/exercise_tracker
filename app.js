@@ -572,8 +572,10 @@ function workoutTiming() {
   const durationSeconds = elapsedSeconds(start, finish);
 
   return {
-    startedAt: start ? start.toISOString() : "",
-    finishedAt: finish.toISOString(),
+    startedAt: formatClockTime(start),
+    finishedAt: formatClockTime(finish),
+    startedAtIso: start ? start.toISOString() : "",
+    finishedAtIso: finish.toISOString(),
     durationSeconds,
     duration: formatDuration(durationSeconds),
   };
@@ -597,6 +599,11 @@ function elapsedSeconds(start, finish) {
 
 function currentTimeValue(date = new Date()) {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function formatClockTime(date) {
+  if (!date || Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
 function timeValueFromIso(value) {
@@ -865,7 +872,7 @@ function restoreDraft() {
 
     els.date.value = draft.date || todayIso();
     els.type.value = draft.workoutType || "Push";
-    els.startTime.value = draft.startTime || timeValueFromIso(draft.startedAt) || startTimeFromElapsed(draft.durationSeconds);
+    els.startTime.value = draft.startTime || timeValueFromIso(draft.startedAtIso || draft.startedAt) || startTimeFromElapsed(draft.durationSeconds);
     updateDurationDisplay();
     els.exerciseList.replaceChildren();
     (draft.exercises?.length ? draft.exercises : [{}]).forEach((exercise) => addExercise(exercise, { position: "end" }));

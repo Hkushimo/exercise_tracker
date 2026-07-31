@@ -62,9 +62,10 @@ Workout Type | Exercise
 11. Use the Web app URL as the Backend API URL in the tracker settings.
 
 ```javascript
-const SPREADSHEET_ID = "PASTE_SPREADSHEET_ID_HERE";
+const SPREADSHEET_ID = "1zXCTXKHvGpwL1Iv19Y29DAn7D62NU7BrqsDqlTvu974";
 const WORKOUTS_SHEET_NAME = "Workouts";
 const REFERENCES_SHEET_NAME = "References";
+const APP_TIME_ZONE = "America/New_York";
 
 function doGet(e) {
   try {
@@ -93,6 +94,8 @@ function doPost(e) {
 
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(WORKOUTS_SHEET_NAME);
     const submittedAt = new Date();
+    const startedAt = payload.startedAt || formatWorkoutTime(payload.startedAtIso);
+    const finishedAt = payload.finishedAt || formatWorkoutTime(payload.finishedAtIso);
     const rows = [];
 
     payload.exercises.forEach((exercise) => {
@@ -101,8 +104,8 @@ function doPost(e) {
           submittedAt,
           payload.date,
           payload.workoutType,
-          payload.startedAt || "",
-          payload.finishedAt || "",
+          startedAt,
+          finishedAt,
           payload.duration || "",
           payload.durationSeconds || 0,
           exercise.name,
@@ -120,6 +123,15 @@ function doPost(e) {
   } catch (error) {
     return jsonResponse({ ok: false, error: error.message });
   }
+}
+
+function formatWorkoutTime(value) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return Utilities.formatDate(date, APP_TIME_ZONE, "h:mm a");
 }
 
 function validateToken(token) {
@@ -220,8 +232,10 @@ This app detects Apps Script URLs that include `script.google.com/macros/` and s
 {
   "date": "2026-07-29",
   "workoutType": "Push",
-  "startedAt": "2026-07-29T18:05:00.000Z",
-  "finishedAt": "2026-07-29T19:08:00.000Z",
+  "startedAt": "2:05 PM",
+  "finishedAt": "3:08 PM",
+  "startedAtIso": "2026-07-29T18:05:00.000Z",
+  "finishedAtIso": "2026-07-29T19:08:00.000Z",
   "durationSeconds": 3780,
   "duration": "1hr 3min",
   "exercises": [
