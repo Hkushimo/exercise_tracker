@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Add exercises to the workout tracker reference sheet.">
+    <meta name="theme-color" content="#07131f">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Workout Tracker">
+    <title>Add Exercise | Workout Tracker</title>
+    <script>
+      try {
+        const settings = JSON.parse(localStorage.getItem("workoutTrackerSettings"));
+        document.documentElement.dataset.theme = settings?.theme || "system";
+      } catch {
+        document.documentElement.dataset.theme = "system";
+      }
+    </script>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to add exercise form</a>
+
+    <main id="main" class="app-shell">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Exercise library</p>
+          <h1>Add an exercise</h1>
+        </div>
+        <div class="header-actions">
+          <a class="ghost-button" href="index.html">Workout Log</a>
+        </div>
+      </header>
+
+      <form id="referenceExerciseForm" class="setup-card" novalidate>
+        <h2>Reference setup</h2>
+        <div class="setup-grid">
+          <label>
+            <span>Workout type</span>
+            <select id="referenceWorkoutType" required>
+              <option>Push</option>
+              <option>Pull</option>
+              <option>Legs</option>
+              <option>Upper Body</option>
+              <option>Lower Body</option>
+              <option>Full Body</option>
+              <option>Cardio</option>
+              <option>Custom</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Exercise name</span>
+            <input id="referenceExerciseName" type="text" autocomplete="off" placeholder="Example: Hammer Strength Row" required>
+          </label>
+        </div>
+
+        <p class="settings-note">This uses the same backend API URL saved in the workout tracker settings.</p>
+        <p class="form-message" id="referenceMessage" role="status" aria-live="polite"></p>
+
+        <div class="modal-actions">
+          <button class="primary-button" type="submit" id="referenceSubmitButton">Add to Sheet</button>
+        </div>
+      </form>
+    </main>
+
+    <script src="add-exercise.js"></script>
+  </body>
+</html>

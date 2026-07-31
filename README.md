@@ -5,8 +5,10 @@ A lightweight, responsive workout tracker built with plain HTML, CSS, and JavaSc
 ## Files
 
 - `index.html` - app markup and templates
+- `add-exercise.html` - page for adding Sheet reference exercises
 - `styles.css` - mobile-first styling
 - `app.js` - workout state, validation, local storage, and submission logic
+- `add-exercise.js` - reference exercise submission logic
 
 ## Backend endpoint
 
@@ -22,7 +24,7 @@ Users can change the API URL in the Settings section of the app. An optional API
 Authorization: Bearer <token>
 ```
 
-Do not put Google credentials, service account keys, or private API secrets in this frontend. The backend should validate requests and append accepted workouts to Google Sheets.
+Do not put Google credentials, service account keys, or private API secrets in this frontend. The backend should validate requests, append accepted workouts to Google Sheets, and return exercise references from the `References` tab. The workout page asks the backend for `?action=references` on load, so the Sheet can be the source of truth for dropdown options.
 
 ## Google Sheets API setup
 
@@ -41,35 +43,57 @@ For a personal or lightweight tracker, a Google Apps Script web app is the short
 
 1. Create a Google Sheet.
 2. Add a tab named `Workouts`.
-3. Add this header row:
+3. Add a tab named `References`.
+4. Add this `Workouts` header row:
 
 ```text
 Submitted At | Date | Workout Type | Started At | Finished At | Duration | Duration Seconds | Exercise | Set Number | Weight | Unit | Reps | RPE
 ```
 
-4. In the Sheet, open `Extensions > Apps Script`.
-5. Paste this script into `Code.gs`.
-6. Replace `PASTE_SPREADSHEET_ID_HERE` with the spreadsheet ID from the Sheet URL.
-7. In Apps Script, set an optional script property named `API_TOKEN` if you want basic token checking.
-8. Deploy as a Web app.
-9. Use the Web app URL as the Backend API URL in the tracker settings.
+5. Add this `References` header row:
+
+```text
+Workout Type | Exercise
+```
+
+6. In the Sheet, open `Extensions > Apps Script`.
+7. Paste this script into `Code.gs`.
+8. Replace `PASTE_SPREADSHEET_ID_HERE` with the spreadsheet ID from the Sheet URL.
+9. In Apps Script, set an optional script property named `API_TOKEN` if you want basic token checking.
+10. Deploy as a Web app.
+11. Use the Web app URL as the Backend API URL in the tracker settings.
 
 ```javascript
 const SPREADSHEET_ID = "PASTE_SPREADSHEET_ID_HERE";
-const SHEET_NAME = "Workouts";
+const WORKOUTS_SHEET_NAME = "Workouts";
+const REFERENCES_SHEET_NAME = "References";
+
+function doGet(e) {
+  try {
+    validateToken(e.parameter.apiToken);
+
+    if (e.parameter.action === "references") {
+      return jsonResponse({ ok: true, references: readReferences() });
+    }
+
+    return jsonResponse({ ok: false, error: "Unknown action." });
+  } catch (error) {
+    return jsonResponse({ ok: false, error: error.message });
+  }
+}
 
 function doPost(e) {
   try {
     const payload = JSON.parse(e.postData.contents);
-    const expectedToken = PropertiesService.getScriptProperties().getProperty("API_TOKEN");
+    validateToken(payload.apiToken);
 
-    if (expectedToken && payload.apiToken !== expectedToken) {
-      return jsonResponse({ ok: false, error: "Unauthorized" });
+    if (payload.action === "addExercise") {
+      return jsonResponse(addReferenceExercise(payload));
     }
 
     validateWorkout(payload);
 
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(WORKOUTS_SHEET_NAME);
     const submittedAt = new Date();
     const rows = [];
 
@@ -100,6 +124,14 @@ function doPost(e) {
   }
 }
 
+function validateToken(token) {
+  const expectedToken = PropertiesService.getScriptProperties().getProperty("API_TOKEN");
+
+  if (expectedToken && token !== expectedToken) {
+    throw new Error("Unauthorized");
+  }
+}
+
 function validateWorkout(payload) {
   if (!payload.date || !payload.workoutType || !Array.isArray(payload.exercises)) {
     throw new Error("Invalid workout payload.");
@@ -111,6 +143,63 @@ function validateWorkout(payload) {
 
   if (!hasSet) {
     throw new Error("Workout must include at least one exercise and set.");
+  }
+}
+
+function addReferenceExercise(payload) {
+  const workoutType = String(payload.workoutType || "").trim();
+  const exerciseName = String(payload.exerciseName || payload.exercise || payload.name || "").trim();
+
+  if (!workoutType || !exerciseName) {
+    throw new Error("Workout type and exercise name are required.");
+  }
+
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(REFERENCES_SHEET_NAME);
+  const existing = readReferences();
+  const duplicate = existing.some((row) => {
+    return row.workoutType.toLowerCase() === workoutType.toLowerCase()
+      && row.exercise.toLowerCase() === exerciseName.toLowerCase();
+  });
+
+  if (duplicate) {
+    return { ok: true, insertedRows: 0, duplicate: true };
+  }
+
+  sheet.appendRow([workoutType, exerciseName]);
+  rebuildReferenceHelpers();
+  return { ok: true, insertedRows: 1 };
+}
+
+function readReferences() {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(REFERENCES_SHEET_NAME);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+
+  return sheet.getRange(2, 1, lastRow - 1, 2).getValues()
+    .map((row) => ({
+      workoutType: String(row[0] || "").trim(),
+      exercise: String(row[1] || "").trim(),
+    }))
+    .filter((row) => row.workoutType && row.exercise);
+}
+
+function rebuildReferenceHelpers() {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(REFERENCES_SHEET_NAME);
+  const references = readReferences();
+  const exercises = [...new Set(references.map((row) => row.exercise))].sort();
+  const workoutTypes = [...new Set(references.map((row) => row.workoutType))].sort();
+
+  sheet.getRange(1, 4, sheet.getMaxRows(), 1).clearContent();
+  sheet.getRange(1, 6, sheet.getMaxRows(), 1).clearContent();
+  sheet.getRange(1, 4).setValue("All Exercises");
+  sheet.getRange(1, 6).setValue("Workout Types");
+
+  if (exercises.length) {
+    sheet.getRange(2, 4, exercises.length, 1).setValues(exercises.map((exercise) => [exercise]));
+  }
+
+  if (workoutTypes.length) {
+    sheet.getRange(2, 6, workoutTypes.length, 1).setValues(workoutTypes.map((type) => [type]));
   }
 }
 
@@ -154,13 +243,23 @@ This app detects Apps Script URLs that include `script.google.com/macros/` and s
 }
 ```
 
+The Add Exercise page sends this payload to the same endpoint:
+
+```json
+{
+  "action": "addExercise",
+  "workoutType": "Pull",
+  "exerciseName": "Hammer Strength Row"
+}
+```
+
 ## Local storage
 
 The app stores unfinished workout drafts and settings in `localStorage`, so refreshing the page keeps entered data. Successful submission clears only the workout draft and keeps settings such as the selected default weight unit.
 
 ## GitHub Pages deployment
 
-1. Commit `index.html`, `styles.css`, `app.js`, and `README.md`.
+1. Commit the HTML, CSS, JavaScript, manifest, icon, and README files.
 2. Push the repository to GitHub.
 3. In the repository settings, enable GitHub Pages from the branch and folder that contain these files.
 

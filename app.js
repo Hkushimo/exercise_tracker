@@ -3,6 +3,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwXYPvj0kiUNiyNLbN7WoK4
 const STORAGE_KEYS = {
   draft: "workoutTrackerDraft",
   settings: "workoutTrackerSettings",
+  references: "workoutTrackerReferences",
 };
 
 const PUSH_EXERCISES = [
@@ -107,7 +108,7 @@ const WORKOUT_TYPES = {
   Custom: [],
 };
 
-const ALL_EXERCISES = [...new Set(Object.values(WORKOUT_TYPES).flat())].sort();
+let referenceExercises = cloneWorkoutTypes(WORKOUT_TYPES);
 
 // Centralized element references keep event wiring and state collection simple.
 const els = {
@@ -142,7 +143,7 @@ let deferredInstallPrompt = null;
 
 init();
 
-function init() {
+async function init() {
   registerServiceWorker();
   setupInstallPrompt();
   applyTheme(settings.theme);
@@ -151,6 +152,9 @@ function init() {
   els.themeMode.value = settings.theme;
   els.apiUrl.value = settings.apiUrl;
   els.apiToken.value = settings.apiToken;
+
+  loadCachedReferences();
+  await loadExerciseReferences();
 
   const restored = restoreDraft();
   if (!restored) {
@@ -260,6 +264,79 @@ function applyTheme(theme) {
   document.documentElement.dataset.theme = theme || "system";
 }
 
+function cloneWorkoutTypes(source) {
+  return Object.fromEntries(Object.entries(source).map(([type, exercises]) => [type, [...exercises]]));
+}
+
+function allReferenceExercises() {
+  return [...new Set(Object.values(referenceExercises).flat())].sort();
+}
+
+function loadCachedReferences() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(STORAGE_KEYS.references));
+    const parsed = parseReferencePayload(cached);
+    if (parsed) referenceExercises = parsed;
+  } catch {
+    referenceExercises = cloneWorkoutTypes(WORKOUT_TYPES);
+  }
+}
+
+async function loadExerciseReferences() {
+  try {
+    const url = buildReferenceUrl();
+    const response = await fetch(url, { method: "GET", mode: "cors" });
+    if (!response.ok) throw new Error(`References returned ${response.status}`);
+
+    const body = await response.json();
+    if (body.ok === false) throw new Error(body.error || "References request failed.");
+
+    const parsed = parseReferencePayload(body.references || body);
+    if (!parsed) throw new Error("References response was empty.");
+
+    referenceExercises = parsed;
+    localStorage.setItem(STORAGE_KEYS.references, JSON.stringify(body.references || body));
+  } catch {
+    // Keep cached or built-in references if the Sheet is unavailable.
+  }
+}
+
+function buildReferenceUrl() {
+  const url = new URL(settings.apiUrl || API_URL);
+  url.searchParams.set("action", "references");
+  if (settings.apiToken) url.searchParams.set("apiToken", settings.apiToken);
+  return url.toString();
+}
+
+function parseReferencePayload(payload) {
+  const next = {};
+
+  if (Array.isArray(payload)) {
+    payload.forEach((item) => {
+      const workoutType = String(item.workoutType || item.type || item[0] || "").trim();
+      const exercise = String(item.exercise || item.name || item[1] || "").trim();
+      if (!workoutType || !exercise) return;
+      if (!next[workoutType]) next[workoutType] = [];
+      next[workoutType].push(exercise);
+    });
+  } else if (payload && typeof payload === "object") {
+    Object.entries(payload).forEach(([workoutType, exercises]) => {
+      if (!Array.isArray(exercises)) return;
+      next[workoutType] = exercises.map((exercise) => String(exercise).trim()).filter(Boolean);
+    });
+  }
+
+  Object.keys(next).forEach((workoutType) => {
+    next[workoutType] = [...new Set(next[workoutType])].sort();
+  });
+
+  return Object.keys(next).length ? { ...emptyWorkoutTypes(), ...next } : null;
+}
+
+function emptyWorkoutTypes() {
+  return Object.fromEntries(Object.keys(WORKOUT_TYPES).map((type) => [type, []]));
+}
+
 function toggleSettings() {
   const isOpen = !els.settingsPanel.hidden;
   els.settingsPanel.hidden = isOpen;
@@ -267,31 +344,19 @@ function toggleSettings() {
 }
 
 function exerciseSuggestions() {
-  const preferred = WORKOUT_TYPES[els.type.value] || [];
-  return els.type.value === "Custom" ? ALL_EXERCISES : preferred;
+  const preferred = referenceExercises[els.type.value] || [];
+  return els.type.value === "Custom" ? allReferenceExercises() : preferred;
 }
 
 // Exercise cards own their set rows, which keeps add/remove behavior localized.
 function addExercise(data = {}, options = {}) {
   const node = els.exerciseTemplate.content.firstElementChild.cloneNode(true);
   const exerciseSelect = node.querySelector(".exercise-select");
-  const exerciseSelectWrap = node.querySelector(".exercise-select-wrap");
-  const customToggle = node.querySelector(".custom-exercise-toggle");
-  const customWrap = node.querySelector(".custom-exercise-wrap");
-  const customInput = node.querySelector(".custom-exercise");
   const setsList = node.querySelector(".sets-list");
 
-  populateExerciseSelect(exerciseSelect, data.isCustom ? "" : data.name);
-  customInput.value = data.isCustom ? data.name || "" : "";
-  setExerciseMode({ exerciseSelect, exerciseSelectWrap, customToggle, customWrap, customInput }, Boolean(data.isCustom));
+  populateExerciseSelect(exerciseSelect, data.name);
 
   exerciseSelect.addEventListener("change", () => {
-    saveDraftSoon();
-  });
-
-  customToggle.addEventListener("change", () => {
-    setExerciseMode({ exerciseSelect, exerciseSelectWrap, customToggle, customWrap, customInput }, customToggle.checked, { clear: true });
-    if (customToggle.checked) customInput.focus();
     saveDraftSoon();
   });
 
@@ -377,31 +442,10 @@ function populateExerciseSelect(select, selectedName = "") {
   }
 }
 
-function setExerciseMode(parts, isCustom, { clear = false } = {}) {
-  parts.customToggle.checked = isCustom;
-  parts.exerciseSelectWrap.hidden = isCustom;
-  parts.customWrap.hidden = !isCustom;
-
-  if (clear) {
-    if (isCustom) {
-      parts.exerciseSelect.value = "";
-    } else {
-      parts.customInput.value = "";
-    }
-  }
-}
-
 function refreshExerciseOptions() {
   document.querySelectorAll(".exercise-card").forEach((card) => {
     const select = card.querySelector(".exercise-select");
-    const custom = card.querySelector(".custom-exercise");
-    const selectWrap = card.querySelector(".exercise-select-wrap");
-    const customToggle = card.querySelector(".custom-exercise-toggle");
-    const customWrap = card.querySelector(".custom-exercise-wrap");
-    const isCustom = customToggle.checked;
-    const currentName = isCustom ? custom.value.trim() : select.value;
-    populateExerciseSelect(select, isCustom ? "" : currentName);
-    setExerciseMode({ exerciseSelect: select, exerciseSelectWrap: selectWrap, customToggle, customWrap, customInput: custom }, isCustom);
+    populateExerciseSelect(select, select.value);
   });
 }
 
@@ -500,9 +544,7 @@ function collectWorkout({ includeIncomplete = true } = {}) {
   const exercises = [...els.exerciseList.querySelectorAll(".exercise-card")]
     .map((card) => {
       const select = card.querySelector(".exercise-select");
-      const isCustom = card.querySelector(".custom-exercise-toggle").checked;
-      const customName = card.querySelector(".custom-exercise").value.trim();
-      const name = isCustom ? customName : select.value;
+      const name = select.value;
       const sets = [...card.querySelectorAll(".set-row")]
         .map((row, index) => {
           const weight = row.querySelector(".set-weight").value;
@@ -521,7 +563,6 @@ function collectWorkout({ includeIncomplete = true } = {}) {
 
       return {
         name,
-        isCustom,
         sets,
       };
     })
@@ -542,7 +583,7 @@ function isCompletedSet(set) {
 function validateWorkout(payload) {
   if (!payload.date) return "Choose a workout date.";
   if (!payload.exercises.length) return "Add at least one exercise.";
-  if (payload.exercises.some((exercise) => !exercise.name)) return "Enter a name for each custom exercise.";
+  if (payload.exercises.some((exercise) => !exercise.name)) return "Choose an exercise for each exercise card.";
 
   const completedSets = payload.exercises.flatMap((exercise) => exercise.sets);
   if (!completedSets.length) return "Add at least one completed set with weight and reps.";
