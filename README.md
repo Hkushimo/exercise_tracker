@@ -5,10 +5,8 @@ A lightweight, responsive workout tracker built with plain HTML, CSS, and JavaSc
 ## Files
 
 - `index.html` - app markup and templates
-- `add-exercise.html` - page for adding Sheet reference exercises
 - `styles.css` - mobile-first styling
 - `app.js` - workout state, validation, local storage, and submission logic
-- `add-exercise.js` - reference exercise submission logic
 
 ## Backend endpoint
 
@@ -243,7 +241,7 @@ This app detects Apps Script URLs that include `script.google.com/macros/` and s
 }
 ```
 
-The Add Exercise page sends this payload to the same endpoint:
+The Exercise Library form in Settings sends this payload to the same endpoint:
 
 ```json
 {

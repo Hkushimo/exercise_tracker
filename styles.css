@@ -208,6 +208,30 @@ h2 {
   font-size: 0.9rem;
 }
 
+.settings-divider {
+  height: 1px;
+  margin: 1rem 0;
+  background: var(--border);
+}
+
+.settings-subform {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.settings-subform .settings-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.settings-subform h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.settings-subform .secondary-button {
+  width: 100%;
+}
+
 .setup-grid,
 .settings-grid {
   display: grid;
@@ -571,6 +595,10 @@ textarea {
 
   .settings-grid {
     grid-template-columns: 0.7fr 0.7fr 1.3fr 1fr;
+  }
+
+  .settings-subform .settings-grid {
+    grid-template-columns: 0.85fr 1.15fr;
   }
 
   .exercise-card,

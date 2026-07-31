@@ -31,7 +31,6 @@
           <h1>Track today's session</h1>
         </div>
         <div class="header-actions">
-          <a class="ghost-button" href="add-exercise.html">Add Exercise</a>
           <button class="ghost-button install-button" type="button" id="installButton" hidden>
             Install
           </button>
@@ -72,6 +71,35 @@
           </label>
         </div>
         <p class="settings-note">No Google credentials or secrets belong in this frontend.</p>
+
+        <div class="settings-divider" aria-hidden="true"></div>
+
+        <form class="settings-subform" id="referenceExerciseForm" novalidate>
+          <h3>Exercise library</h3>
+          <div class="settings-grid">
+            <label>
+              <span>Workout type</span>
+              <select id="referenceWorkoutType" required>
+                <option>Push</option>
+                <option>Pull</option>
+                <option>Legs</option>
+                <option>Upper Body</option>
+                <option>Lower Body</option>
+                <option>Full Body</option>
+                <option>Cardio</option>
+                <option>Custom</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Exercise name</span>
+              <input id="referenceExerciseName" type="text" autocomplete="off" placeholder="Example: Hammer Strength Row" required>
+            </label>
+          </div>
+          <p class="settings-note">Add an exercise to the Sheet references, then refresh the dropdowns from the Sheet.</p>
+          <p class="form-message" id="referenceMessage" role="status" aria-live="polite"></p>
+          <button class="secondary-button" type="submit" id="referenceSubmitButton">Add to Sheet</button>
+        </form>
       </section>
 
       <form id="workoutForm" novalidate>

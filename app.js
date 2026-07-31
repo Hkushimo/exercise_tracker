@@ -129,6 +129,11 @@ const els = {
   themeMode: document.querySelector("#themeMode"),
   apiUrl: document.querySelector("#apiUrl"),
   apiToken: document.querySelector("#apiToken"),
+  referenceForm: document.querySelector("#referenceExerciseForm"),
+  referenceWorkoutType: document.querySelector("#referenceWorkoutType"),
+  referenceExerciseName: document.querySelector("#referenceExerciseName"),
+  referenceMessage: document.querySelector("#referenceMessage"),
+  referenceSubmit: document.querySelector("#referenceSubmitButton"),
   summaryModal: document.querySelector("#summaryModal"),
   summaryContent: document.querySelector("#summaryContent"),
   confirmSubmit: document.querySelector("#confirmSubmitButton"),
@@ -177,6 +182,7 @@ async function init() {
   els.durationInput.addEventListener("input", updateDurationDisplay);
   els.durationInput.addEventListener("change", updateDurationDisplay);
   els.clearWorkout.addEventListener("click", clearWorkout);
+  els.referenceForm.addEventListener("submit", submitReferenceExercise);
 
   els.settingsToggle.addEventListener("click", toggleSettings);
   [els.defaultUnit, els.themeMode, els.apiUrl, els.apiToken].forEach((input) => {
@@ -301,11 +307,60 @@ async function loadExerciseReferences() {
   }
 }
 
+async function reloadExerciseReferences() {
+  localStorage.removeItem(STORAGE_KEYS.references);
+  referenceExercises = cloneWorkoutTypes(WORKOUT_TYPES);
+  await loadExerciseReferences();
+  refreshExerciseOptions();
+}
+
 function buildReferenceUrl() {
   const url = new URL(settings.apiUrl || API_URL);
   url.searchParams.set("action", "references");
   if (settings.apiToken) url.searchParams.set("apiToken", settings.apiToken);
   return url.toString();
+}
+
+async function submitReferenceExercise(event) {
+  event.preventDefault();
+  clearReferenceMessage();
+
+  const workoutType = els.referenceWorkoutType.value;
+  const exerciseName = els.referenceExerciseName.value.trim();
+
+  if (!workoutType || !exerciseName) {
+    showReferenceMessage("Choose a workout type and enter an exercise name.", "error");
+    return;
+  }
+
+  setReferenceProcessing(true);
+
+  try {
+    const response = await fetch(settings.apiUrl || API_URL, {
+      method: "POST",
+      mode: "cors",
+      ...buildApiRequest({ action: "addExercise", workoutType, exerciseName }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(text || `Backend returned ${response.status}`);
+    }
+
+    const responseBody = await response.clone().json().catch(() => null);
+    if (responseBody && responseBody.ok === false) {
+      throw new Error(responseBody.error || "Backend rejected the exercise.");
+    }
+
+    els.referenceExerciseName.value = "";
+    await reloadExerciseReferences();
+    showReferenceMessage("Exercise added and dropdowns refreshed from the Sheet.", "success");
+    els.referenceExerciseName.focus();
+  } catch (error) {
+    showReferenceMessage(readableSubmitError(error).replace("Submission failed", "Exercise add failed"), "error");
+  } finally {
+    setReferenceProcessing(false);
+  }
 }
 
 function parseReferencePayload(payload) {
@@ -671,7 +726,11 @@ async function submitWorkout() {
 }
 
 function buildSubmissionRequest(payload) {
-  const body = stripDraftFields(payload);
+  return buildApiRequest(stripDraftFields(payload));
+}
+
+function buildApiRequest(payload) {
+  const body = { ...payload };
   const isAppsScript = (settings.apiUrl || API_URL).includes("script.google.com/macros/");
 
   if (isAppsScript) {
@@ -721,6 +780,11 @@ function setProcessing(isProcessing) {
   els.confirmSubmit.disabled = isProcessing;
   els.submit.textContent = isProcessing ? "Submitting..." : "Submit Workout";
   els.confirmSubmit.textContent = isProcessing ? "Submitting..." : "Confirm Submit";
+}
+
+function setReferenceProcessing(isProcessing) {
+  els.referenceSubmit.disabled = isProcessing;
+  els.referenceSubmit.textContent = isProcessing ? "Adding..." : "Add to Sheet";
 }
 
 function resetForm(unit) {
@@ -788,6 +852,16 @@ function showMessage(message, type) {
 function clearMessage() {
   els.formMessage.textContent = "";
   els.formMessage.className = "form-message";
+}
+
+function showReferenceMessage(message, type) {
+  els.referenceMessage.textContent = message;
+  els.referenceMessage.className = `form-message ${type}`;
+}
+
+function clearReferenceMessage() {
+  els.referenceMessage.textContent = "";
+  els.referenceMessage.className = "form-message";
 }
 
 function escapeHtml(value) {
