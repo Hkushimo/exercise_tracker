@@ -237,7 +237,7 @@ This app detects Apps Script URLs that include `script.google.com/macros/` and s
   "startedAtIso": "2026-07-29T18:05:00.000Z",
   "finishedAtIso": "2026-07-29T19:08:00.000Z",
   "durationSeconds": 3780,
-  "duration": "1hr 3min",
+  "duration": "1hr 3m",
   "exercises": [
     {
       "name": "Bench Press",

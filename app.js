@@ -623,9 +623,9 @@ function formatDuration(totalSeconds) {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
 
-  if (hours && minutes) return `${hours}hr ${minutes}min`;
+  if (hours && minutes) return `${hours}hr ${minutes}m`;
   if (hours) return `${hours}hr`;
-  return `${minutes}min`;
+  return `${minutes}m`;
 }
 
 // The draft includes incomplete rows; submissions only include completed sets.
