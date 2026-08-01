@@ -836,18 +836,17 @@ async function submitWorkout() {
 async function loadExerciseStats() {
   clearAnalysisMessage();
 
-  const workoutType = els.statsWorkoutType.value;
   const exercise = els.statsExercise.value;
 
-  if (!workoutType || !exercise) {
-    renderStatsEmpty("Choose a workout type and exercise.");
+  if (!exercise) {
+    renderStatsEmpty("Choose an exercise.");
     return;
   }
 
   setAnalysisProcessing(true);
 
   try {
-    const response = await fetch(buildWorkoutHistoryUrl(workoutType, exercise), { method: "GET", mode: "cors" });
+    const response = await fetch(buildWorkoutHistoryUrl(exercise), { method: "GET", mode: "cors" });
 
     if (!response.ok) {
       const text = await response.text().catch(() => "");
@@ -859,7 +858,7 @@ async function loadExerciseStats() {
       throw new Error(body.error || "Backend rejected the stats request.");
     }
 
-    renderExerciseStats(parseWorkoutRows(body.rows || body.history || body), workoutType, exercise);
+    renderExerciseStats(parseWorkoutRows(body.rows || body.history || body), exercise);
     statsHasLoaded = true;
   } catch (error) {
     renderStatsEmpty("Stats could not load yet.");
@@ -869,10 +868,9 @@ async function loadExerciseStats() {
   }
 }
 
-function buildWorkoutHistoryUrl(workoutType, exercise) {
+function buildWorkoutHistoryUrl(exercise) {
   const url = new URL(settings.apiUrl || API_URL);
   url.searchParams.set("action", "workoutHistory");
-  url.searchParams.set("workoutType", workoutType);
   url.searchParams.set("exercise", exercise);
   if (settings.apiToken) url.searchParams.set("apiToken", settings.apiToken);
   return url.toString();
@@ -897,8 +895,8 @@ function parseWorkoutRows(payload) {
     .filter((row) => row.date && row.exercise && Number.isFinite(row.weight) && Number.isFinite(row.reps));
 }
 
-function renderExerciseStats(rows, workoutType, exercise) {
-  const filtered = rows.filter((row) => row.workoutType === workoutType && row.exercise === exercise);
+function renderExerciseStats(rows, exercise) {
+  const filtered = rows.filter((row) => row.exercise === exercise);
   if (!filtered.length) {
     renderStatsEmpty(`No logged sets found for ${exercise}.`);
     return;
@@ -912,7 +910,7 @@ function renderExerciseStats(rows, workoutType, exercise) {
     <article class="stat-card stat-card-wide">
       <span>Exercise</span>
       <strong>${escapeHtml(exercise)}</strong>
-      <small>${escapeHtml(workoutType)} - ${stats.sessions.length} session${stats.sessions.length === 1 ? "" : "s"} tracked</small>
+      <small>${stats.sessions.length} session${stats.sessions.length === 1 ? "" : "s"} tracked across ${stats.workoutTypes.length} workout type${stats.workoutTypes.length === 1 ? "" : "s"}</small>
     </article>
     ${statCard("Total Volume", formatNumber(stats.totalVolume), `${stats.totalSets} sets logged`)}
     ${statCard("Best Weight", `${formatNumber(stats.bestWeight.weight)} ${escapeHtml(stats.unit)}`, `${stats.bestWeight.reps} reps on ${escapeHtml(stats.bestWeight.date)}`)}
@@ -933,6 +931,7 @@ function renderExerciseStats(rows, workoutType, exercise) {
 function calculateExerciseStats(rows) {
   const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date) || a.setNumber - b.setNumber);
   const unit = sorted.find((row) => row.unit)?.unit || settings.defaultUnit;
+  const workoutTypes = [...new Set(sorted.map((row) => row.workoutType).filter(Boolean))].sort();
   const totalSets = sorted.length;
   const totalVolume = sorted.reduce((sum, row) => sum + row.weight * row.reps, 0);
   const avgWeight = totalSets ? sorted.reduce((sum, row) => sum + row.weight, 0) / totalSets : 0;
@@ -946,6 +945,7 @@ function calculateExerciseStats(rows) {
 
   return {
     unit,
+    workoutTypes,
     totalSets,
     totalVolume,
     avgWeight,

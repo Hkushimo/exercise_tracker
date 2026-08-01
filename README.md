@@ -76,7 +76,7 @@ function doGet(e) {
     }
 
     if (e.parameter.action === "workoutHistory") {
-      return jsonResponse({ ok: true, rows: readWorkoutRows(e.parameter.workoutType, e.parameter.exercise) });
+      return jsonResponse({ ok: true, rows: readWorkoutRows(e.parameter.exercise) });
     }
 
     return jsonResponse({ ok: false, error: "Unknown action." });
@@ -184,12 +184,11 @@ function addReferenceExercise(payload) {
   return { ok: true, insertedRows: 1 };
 }
 
-function readWorkoutRows(workoutTypeFilter, exerciseFilter) {
+function readWorkoutRows(exerciseFilter) {
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(WORKOUTS_SHEET_NAME);
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
 
-  const workoutType = String(workoutTypeFilter || "").toLowerCase();
   const exercise = String(exerciseFilter || "").toLowerCase();
 
   return sheet.getRange(2, 1, lastRow - 1, 13).getValues()
@@ -210,7 +209,6 @@ function readWorkoutRows(workoutTypeFilter, exerciseFilter) {
     }))
     .filter((row) => {
       if (!row.date || !row.exercise) return false;
-      if (workoutType && row.workoutType.toLowerCase() !== workoutType) return false;
       if (exercise && row.exercise.toLowerCase() !== exercise) return false;
       return true;
     })
