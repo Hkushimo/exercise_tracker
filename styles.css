@@ -145,6 +145,7 @@ button:disabled {
 
 .header-actions {
   justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .install-button {
@@ -156,6 +157,22 @@ button:disabled {
   border-color: var(--accent);
   background: var(--surface-soft);
   color: var(--accent-dark);
+}
+
+.icon-nav-button {
+  width: 48px;
+  min-width: 48px;
+  padding: 0;
+}
+
+.icon-nav-button svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
 h1,
@@ -715,16 +732,31 @@ textarea {
 @media (max-width: 520px) {
   .page-header,
   .section-heading,
-  .header-actions,
   .modal-actions {
     align-items: stretch;
     flex-direction: column;
   }
 
   .page-header .ghost-button,
-  .header-actions button,
   .modal-actions button {
     width: 100%;
+  }
+
+  .header-actions {
+    align-self: stretch;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .header-actions .icon-nav-button {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+  }
+
+  .header-actions .install-button:not([hidden]) {
+    flex: 1 1 100%;
+    order: -1;
   }
 
   .section-actions,
