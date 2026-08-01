@@ -152,6 +152,12 @@ button:disabled {
   color: var(--accent-dark);
 }
 
+.view-button.is-active {
+  border-color: var(--accent);
+  background: var(--surface-soft);
+  color: var(--accent-dark);
+}
+
 h1,
 h2,
 p {
@@ -181,7 +187,9 @@ h2 {
 
 .setup-card,
 .settings-panel,
-.exercise-card {
+.exercise-card,
+.analysis-card,
+.analysis-output {
   border: 1px solid var(--border);
   border-radius: 0.35rem;
   background: var(--surface);
@@ -189,7 +197,9 @@ h2 {
 }
 
 .setup-card,
-.settings-panel {
+.settings-panel,
+.analysis-card,
+.analysis-output {
   padding: 1rem;
 }
 
@@ -334,6 +344,40 @@ textarea {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0.75rem;
+}
+
+.analysis-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.analysis-range,
+.analysis-actions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.analysis-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.analysis-card textarea {
+  min-height: 132px;
+}
+
+.analysis-output {
+  display: grid;
+  gap: 0.85rem;
+  min-height: 180px;
+  margin-top: 1rem;
+}
+
+.analysis-output p {
+  margin: 0;
+}
+
+.empty-state {
+  color: var(--muted);
 }
 
 .exercise-actions {
@@ -593,6 +637,10 @@ textarea {
     grid-template-columns: 1fr 1fr;
   }
 
+  .analysis-range {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .settings-grid {
     grid-template-columns: 0.7fr 0.7fr 1.3fr 1fr;
   }
@@ -604,6 +652,8 @@ textarea {
   .exercise-card,
   .setup-card,
   .settings-panel,
+  .analysis-card,
+  .analysis-output,
   .modal-card {
     padding: 1.25rem;
   }
@@ -618,6 +668,7 @@ textarea {
   .page-header,
   .section-heading,
   .header-actions,
+  .analysis-actions,
   .modal-actions {
     align-items: stretch;
     flex-direction: column;
@@ -625,6 +676,7 @@ textarea {
 
   .page-header .ghost-button,
   .header-actions button,
+  .analysis-actions button,
   .modal-actions button {
     width: 100%;
   }

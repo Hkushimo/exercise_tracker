@@ -56,10 +56,11 @@ Workout Type | Exercise
 
 6. In the Sheet, open `Extensions > Apps Script`.
 7. Paste this script into `Code.gs`.
-8. Replace `PASTE_SPREADSHEET_ID_HERE` with the spreadsheet ID from the Sheet URL.
+8. Confirm `SPREADSHEET_ID` matches the spreadsheet ID from the Sheet URL.
 9. In Apps Script, set an optional script property named `API_TOKEN` if you want basic token checking.
-10. Deploy as a Web app.
-11. Use the Web app URL as the Backend API URL in the tracker settings.
+10. In Apps Script, set a script property named `OPENAI_API_KEY` for the Analysis tab.
+11. Deploy as a Web app.
+12. Use the Web app URL as the Backend API URL in the tracker settings.
 
 ```javascript
 const SPREADSHEET_ID = "1zXCTXKHvGpwL1Iv19Y29DAn7D62NU7BrqsDqlTvu974";
@@ -88,6 +89,10 @@ function doPost(e) {
 
     if (payload.action === "addExercise") {
       return jsonResponse(addReferenceExercise(payload));
+    }
+
+    if (payload.action === "analyzeWorkouts") {
+      return jsonResponse(analyzeWorkouts(payload));
     }
 
     validateWorkout(payload);
@@ -178,6 +183,113 @@ function addReferenceExercise(payload) {
   sheet.appendRow([workoutType, exerciseName]);
   rebuildReferenceHelpers();
   return { ok: true, insertedRows: 1 };
+}
+
+function analyzeWorkouts(payload) {
+  const question = String(payload.question || "").trim();
+  if (!question) {
+    throw new Error("Analysis question is required.");
+  }
+
+  const rows = readWorkoutRows(payload.startDate, payload.endDate);
+  if (!rows.length) {
+    return { ok: true, answer: "I did not find any workouts for that date range yet." };
+  }
+
+  const answer = callOpenAIForWorkoutAnalysis(question, rows);
+  return { ok: true, answer };
+}
+
+function readWorkoutRows(startDate, endDate) {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(WORKOUTS_SHEET_NAME);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+
+  const start = startDate ? new Date(startDate + "T00:00:00") : null;
+  const end = endDate ? new Date(endDate + "T23:59:59") : null;
+
+  return sheet.getRange(2, 1, lastRow - 1, 13).getValues()
+    .map((row) => ({
+      submittedAt: formatSheetDate(row[0]),
+      date: formatSheetDate(row[1]),
+      workoutType: String(row[2] || ""),
+      startedAt: String(row[3] || ""),
+      finishedAt: String(row[4] || ""),
+      duration: String(row[5] || ""),
+      durationSeconds: Number(row[6] || 0),
+      exercise: String(row[7] || ""),
+      setNumber: Number(row[8] || 0),
+      weight: Number(row[9] || 0),
+      unit: String(row[10] || ""),
+      reps: Number(row[11] || 0),
+      rpe: String(row[12] || ""),
+    }))
+    .filter((row) => {
+      if (!row.date || !row.exercise) return false;
+      const workoutDate = new Date(row.date + "T12:00:00");
+      if (start && workoutDate < start) return false;
+      if (end && workoutDate > end) return false;
+      return true;
+    })
+    .slice(-500);
+}
+
+function callOpenAIForWorkoutAnalysis(question, rows) {
+  const apiKey = PropertiesService.getScriptProperties().getProperty("OPENAI_API_KEY");
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY script property is missing.");
+  }
+
+  const context = JSON.stringify(rows);
+  const response = UrlFetchApp.fetch("https://api.openai.com/v1/responses", {
+    method: "post",
+    contentType: "application/json",
+    headers: {
+      Authorization: "Bearer " + apiKey,
+    },
+    payload: JSON.stringify({
+      model: "gpt-5",
+      input: [
+        {
+          role: "developer",
+          content: "You are a concise workout analyst. Use only the provided workout rows. Give practical observations about progression, volume, consistency, RPE, and next-session focus. If data is missing, say what is missing. Keep the answer under 180 words.",
+        },
+        {
+          role: "user",
+          content: "Question: " + question + "\n\nWorkout rows JSON:\n" + context,
+        },
+      ],
+    }),
+    muteHttpExceptions: true,
+  });
+
+  const status = response.getResponseCode();
+  const body = JSON.parse(response.getContentText() || "{}");
+  if (status >= 400) {
+    throw new Error(body.error && body.error.message ? body.error.message : "OpenAI request failed.");
+  }
+
+  return extractOpenAIText(body);
+}
+
+function extractOpenAIText(body) {
+  if (body.output_text) return body.output_text;
+
+  const parts = [];
+  (body.output || []).forEach((item) => {
+    (item.content || []).forEach((content) => {
+      if (content.text) parts.push(content.text);
+    });
+  });
+
+  return parts.join("\n").trim();
+}
+
+function formatSheetDate(value) {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return Utilities.formatDate(date, APP_TIME_ZONE, "yyyy-MM-dd");
 }
 
 function readReferences() {

@@ -31,6 +31,12 @@
           <h1>Track today's session</h1>
         </div>
         <div class="header-actions">
+          <button class="ghost-button view-button is-active" type="button" id="logViewButton" aria-pressed="true">
+            Log
+          </button>
+          <button class="ghost-button view-button" type="button" id="analysisViewButton" aria-pressed="false">
+            Analysis
+          </button>
           <button class="ghost-button install-button" type="button" id="installButton" hidden>
             Install
           </button>
@@ -102,7 +108,7 @@
         </form>
       </section>
 
-      <form id="workoutForm" novalidate>
+      <form id="workoutForm" class="view-panel" novalidate>
         <section class="setup-card" aria-labelledby="setupHeading">
           <h2 id="setupHeading">Setup</h2>
           <div class="setup-grid">
@@ -130,7 +136,7 @@
               <span>Start time</span>
               <input id="workoutStartTime" type="time" step="60">
             </label>
-            <output id="workoutDuration" for="workoutStartTime">0min</output>
+            <output id="workoutDuration" for="workoutStartTime">0m</output>
           </div>
         </section>
 
@@ -153,6 +159,48 @@
           <button class="primary-button" type="submit" id="submitButton">Submit Workout</button>
         </div>
       </form>
+
+      <section class="analysis-panel view-panel" id="analysisView" aria-labelledby="analysisHeading" hidden>
+        <div class="section-heading">
+          <div>
+            <h2 id="analysisHeading">Analysis</h2>
+            <p>Ask about dates, exercises, volume, reps, weight, RPE, or trends.</p>
+          </div>
+        </div>
+
+        <form class="analysis-card" id="analysisForm" novalidate>
+          <div class="analysis-range">
+            <label>
+              <span>Start date <small>optional</small></span>
+              <input id="analysisStartDate" type="date">
+            </label>
+
+            <label>
+              <span>End date <small>optional</small></span>
+              <input id="analysisEndDate" type="date">
+            </label>
+          </div>
+
+          <label>
+            <span>Question</span>
+            <textarea id="analysisPrompt" rows="4" placeholder="Example: Review my upper body workouts from July and tell me what improved." required></textarea>
+          </label>
+
+          <div class="analysis-actions">
+            <button class="secondary-button" type="button" data-analysis-prompt="Review my most recent workout. What went well and what should I focus on next time?">Recent</button>
+            <button class="secondary-button" type="button" data-analysis-prompt="Compare my workouts over the selected date range and call out strength or rep progress.">Compare</button>
+            <button class="secondary-button" type="button" data-analysis-prompt="Find any exercises where weight, reps, or volume are trending up or down.">Trends</button>
+          </div>
+
+          <button class="primary-button" type="submit" id="analysisSubmitButton">Analyze</button>
+        </form>
+
+        <div class="analysis-output" id="analysisOutput" aria-live="polite">
+          <p class="empty-state">Ask a question to get a plain-English review from your workout history.</p>
+        </div>
+
+        <p class="form-message" id="analysisMessage" role="status" aria-live="polite"></p>
+      </section>
     </main>
 
     <dialog id="summaryModal" class="modal">

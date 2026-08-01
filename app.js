@@ -113,6 +113,10 @@ let referenceExercises = cloneWorkoutTypes(WORKOUT_TYPES);
 // Centralized element references keep event wiring and state collection simple.
 const els = {
   form: document.querySelector("#workoutForm"),
+  logView: document.querySelector("#workoutForm"),
+  analysisView: document.querySelector("#analysisView"),
+  logViewButton: document.querySelector("#logViewButton"),
+  analysisViewButton: document.querySelector("#analysisViewButton"),
   date: document.querySelector("#workoutDate"),
   type: document.querySelector("#workoutType"),
   startTime: document.querySelector("#workoutStartTime"),
@@ -134,6 +138,13 @@ const els = {
   referenceExerciseName: document.querySelector("#referenceExerciseName"),
   referenceMessage: document.querySelector("#referenceMessage"),
   referenceSubmit: document.querySelector("#referenceSubmitButton"),
+  analysisForm: document.querySelector("#analysisForm"),
+  analysisStartDate: document.querySelector("#analysisStartDate"),
+  analysisEndDate: document.querySelector("#analysisEndDate"),
+  analysisPrompt: document.querySelector("#analysisPrompt"),
+  analysisSubmit: document.querySelector("#analysisSubmitButton"),
+  analysisOutput: document.querySelector("#analysisOutput"),
+  analysisMessage: document.querySelector("#analysisMessage"),
   summaryModal: document.querySelector("#summaryModal"),
   summaryContent: document.querySelector("#summaryContent"),
   confirmSubmit: document.querySelector("#confirmSubmitButton"),
@@ -192,8 +203,17 @@ async function init() {
   });
   els.clearWorkout.addEventListener("click", clearWorkout);
   els.referenceForm.addEventListener("submit", submitReferenceExercise);
+  els.analysisForm.addEventListener("submit", submitAnalysisQuestion);
+  document.querySelectorAll("[data-analysis-prompt]").forEach((button) => {
+    button.addEventListener("click", () => {
+      els.analysisPrompt.value = button.dataset.analysisPrompt;
+      els.analysisPrompt.focus();
+    });
+  });
 
   els.settingsToggle.addEventListener("click", toggleSettings);
+  els.logViewButton.addEventListener("click", () => switchView("log"));
+  els.analysisViewButton.addEventListener("click", () => switchView("analysis"));
   [els.defaultUnit, els.themeMode, els.apiUrl, els.apiToken].forEach((input) => {
     input.addEventListener("input", saveSettings);
     input.addEventListener("change", saveSettings);
@@ -406,6 +426,22 @@ function toggleSettings() {
   const isOpen = !els.settingsPanel.hidden;
   els.settingsPanel.hidden = isOpen;
   els.settingsToggle.setAttribute("aria-expanded", String(!isOpen));
+}
+
+function switchView(view) {
+  const showAnalysis = view === "analysis";
+  els.logView.hidden = showAnalysis;
+  els.analysisView.hidden = !showAnalysis;
+  els.logViewButton.classList.toggle("is-active", !showAnalysis);
+  els.analysisViewButton.classList.toggle("is-active", showAnalysis);
+  els.logViewButton.setAttribute("aria-pressed", String(!showAnalysis));
+  els.analysisViewButton.setAttribute("aria-pressed", String(showAnalysis));
+
+  if (showAnalysis) {
+    els.analysisPrompt.focus();
+  } else {
+    els.date.focus();
+  }
 }
 
 function exerciseSuggestions() {
@@ -762,6 +798,61 @@ async function submitWorkout() {
   }
 }
 
+async function submitAnalysisQuestion(event) {
+  event.preventDefault();
+  clearAnalysisMessage();
+
+  const question = els.analysisPrompt.value.trim();
+  if (!question) {
+    showAnalysisMessage("Enter a question first.", "error");
+    return;
+  }
+
+  setAnalysisProcessing(true);
+
+  try {
+    const response = await fetch(settings.apiUrl || API_URL, {
+      method: "POST",
+      mode: "cors",
+      ...buildApiRequest({
+        action: "analyzeWorkouts",
+        question,
+        startDate: els.analysisStartDate.value,
+        endDate: els.analysisEndDate.value,
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(text || `Backend returned ${response.status}`);
+    }
+
+    const body = await response.json();
+    if (body.ok === false) {
+      throw new Error(body.error || "Backend rejected the analysis request.");
+    }
+
+    renderAnalysisAnswer(body.answer || body.analysis || "");
+  } catch (error) {
+    showAnalysisMessage(readableSubmitError(error).replace("Submission failed", "Analysis failed"), "error");
+  } finally {
+    setAnalysisProcessing(false);
+  }
+}
+
+function renderAnalysisAnswer(answer) {
+  const text = String(answer || "").trim();
+  if (!text) {
+    showAnalysisMessage("The backend returned an empty analysis.", "error");
+    return;
+  }
+
+  els.analysisOutput.innerHTML = text
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`)
+    .join("");
+}
+
 function buildSubmissionRequest(payload) {
   return buildApiRequest(stripDraftFields(payload));
 }
@@ -823,6 +914,11 @@ function setProcessing(isProcessing) {
 function setReferenceProcessing(isProcessing) {
   els.referenceSubmit.disabled = isProcessing;
   els.referenceSubmit.textContent = isProcessing ? "Adding..." : "Add to Sheet";
+}
+
+function setAnalysisProcessing(isProcessing) {
+  els.analysisSubmit.disabled = isProcessing;
+  els.analysisSubmit.textContent = isProcessing ? "Analyzing..." : "Analyze";
 }
 
 function resetForm(unit) {
@@ -900,6 +996,16 @@ function showReferenceMessage(message, type) {
 function clearReferenceMessage() {
   els.referenceMessage.textContent = "";
   els.referenceMessage.className = "form-message";
+}
+
+function showAnalysisMessage(message, type) {
+  els.analysisMessage.textContent = message;
+  els.analysisMessage.className = `form-message ${type}`;
+}
+
+function clearAnalysisMessage() {
+  els.analysisMessage.textContent = "";
+  els.analysisMessage.className = "form-message";
 }
 
 function escapeHtml(value) {
