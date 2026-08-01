@@ -138,12 +138,10 @@ const els = {
   referenceExerciseName: document.querySelector("#referenceExerciseName"),
   referenceMessage: document.querySelector("#referenceMessage"),
   referenceSubmit: document.querySelector("#referenceSubmitButton"),
-  analysisForm: document.querySelector("#analysisForm"),
-  analysisStartDate: document.querySelector("#analysisStartDate"),
-  analysisEndDate: document.querySelector("#analysisEndDate"),
-  analysisPrompt: document.querySelector("#analysisPrompt"),
-  analysisSubmit: document.querySelector("#analysisSubmitButton"),
-  analysisOutput: document.querySelector("#analysisOutput"),
+  statsWorkoutType: document.querySelector("#statsWorkoutType"),
+  statsExercise: document.querySelector("#statsExercise"),
+  statsRefresh: document.querySelector("#statsRefreshButton"),
+  statsGrid: document.querySelector("#statsGrid"),
   analysisMessage: document.querySelector("#analysisMessage"),
   summaryModal: document.querySelector("#summaryModal"),
   summaryContent: document.querySelector("#summaryContent"),
@@ -156,6 +154,7 @@ let settings = loadSettings();
 let pendingPayload = null;
 let saveTimer = 0;
 let deferredInstallPrompt = null;
+let statsHasLoaded = false;
 
 init();
 
@@ -203,13 +202,12 @@ async function init() {
   });
   els.clearWorkout.addEventListener("click", clearWorkout);
   els.referenceForm.addEventListener("submit", submitReferenceExercise);
-  els.analysisForm.addEventListener("submit", submitAnalysisQuestion);
-  document.querySelectorAll("[data-analysis-prompt]").forEach((button) => {
-    button.addEventListener("click", () => {
-      els.analysisPrompt.value = button.dataset.analysisPrompt;
-      els.analysisPrompt.focus();
-    });
+  els.statsWorkoutType.addEventListener("change", () => {
+    populateStatsExerciseSelect();
+    loadExerciseStats();
   });
+  els.statsExercise.addEventListener("change", loadExerciseStats);
+  els.statsRefresh.addEventListener("click", loadExerciseStats);
 
   els.settingsToggle.addEventListener("click", toggleSettings);
   els.logViewButton.addEventListener("click", () => switchView("log"));
@@ -342,6 +340,7 @@ async function reloadExerciseReferences() {
   referenceExercises = cloneWorkoutTypes(WORKOUT_TYPES);
   await loadExerciseReferences();
   refreshExerciseOptions();
+  populateStatsFilters();
 }
 
 function buildReferenceUrl() {
@@ -438,9 +437,45 @@ function switchView(view) {
   els.analysisViewButton.setAttribute("aria-pressed", String(showAnalysis));
 
   if (showAnalysis) {
-    els.analysisPrompt.focus();
+    populateStatsFilters();
+    if (!statsHasLoaded) loadExerciseStats();
+    els.statsExercise.focus();
   } else {
     els.date.focus();
+  }
+}
+
+function populateStatsFilters() {
+  const currentType = els.statsWorkoutType.value || els.type.value || "Push";
+  els.statsWorkoutType.replaceChildren();
+
+  Object.keys(referenceExercises).forEach((type) => {
+    els.statsWorkoutType.add(new Option(type, type));
+  });
+
+  if (referenceExercises[currentType]) {
+    els.statsWorkoutType.value = currentType;
+  }
+
+  populateStatsExerciseSelect();
+}
+
+function populateStatsExerciseSelect() {
+  const exercises = referenceExercises[els.statsWorkoutType.value] || [];
+  const currentExercise = els.statsExercise.value;
+  els.statsExercise.replaceChildren();
+
+  if (!exercises.length) {
+    els.statsExercise.add(new Option("No exercises yet", ""));
+    return;
+  }
+
+  exercises.forEach((exercise) => {
+    els.statsExercise.add(new Option(exercise, exercise));
+  });
+
+  if (exercises.includes(currentExercise)) {
+    els.statsExercise.value = currentExercise;
   }
 }
 
@@ -798,29 +833,21 @@ async function submitWorkout() {
   }
 }
 
-async function submitAnalysisQuestion(event) {
-  event.preventDefault();
+async function loadExerciseStats() {
   clearAnalysisMessage();
 
-  const question = els.analysisPrompt.value.trim();
-  if (!question) {
-    showAnalysisMessage("Enter a question first.", "error");
+  const workoutType = els.statsWorkoutType.value;
+  const exercise = els.statsExercise.value;
+
+  if (!workoutType || !exercise) {
+    renderStatsEmpty("Choose a workout type and exercise.");
     return;
   }
 
   setAnalysisProcessing(true);
 
   try {
-    const response = await fetch(settings.apiUrl || API_URL, {
-      method: "POST",
-      mode: "cors",
-      ...buildApiRequest({
-        action: "analyzeWorkouts",
-        question,
-        startDate: els.analysisStartDate.value,
-        endDate: els.analysisEndDate.value,
-      }),
-    });
+    const response = await fetch(buildWorkoutHistoryUrl(workoutType, exercise), { method: "GET", mode: "cors" });
 
     if (!response.ok) {
       const text = await response.text().catch(() => "");
@@ -829,28 +856,198 @@ async function submitAnalysisQuestion(event) {
 
     const body = await response.json();
     if (body.ok === false) {
-      throw new Error(body.error || "Backend rejected the analysis request.");
+      throw new Error(body.error || "Backend rejected the stats request.");
     }
 
-    renderAnalysisAnswer(body.answer || body.analysis || "");
+    renderExerciseStats(parseWorkoutRows(body.rows || body.history || body), workoutType, exercise);
+    statsHasLoaded = true;
   } catch (error) {
-    showAnalysisMessage(readableSubmitError(error).replace("Submission failed", "Analysis failed"), "error");
+    renderStatsEmpty("Stats could not load yet.");
+    showAnalysisMessage(readableSubmitError(error).replace("Submission failed", "Stats failed"), "error");
   } finally {
     setAnalysisProcessing(false);
   }
 }
 
-function renderAnalysisAnswer(answer) {
-  const text = String(answer || "").trim();
-  if (!text) {
-    showAnalysisMessage("The backend returned an empty analysis.", "error");
+function buildWorkoutHistoryUrl(workoutType, exercise) {
+  const url = new URL(settings.apiUrl || API_URL);
+  url.searchParams.set("action", "workoutHistory");
+  url.searchParams.set("workoutType", workoutType);
+  url.searchParams.set("exercise", exercise);
+  if (settings.apiToken) url.searchParams.set("apiToken", settings.apiToken);
+  return url.toString();
+}
+
+function parseWorkoutRows(payload) {
+  if (!Array.isArray(payload)) return [];
+
+  return payload
+    .map((row) => ({
+      date: String(row.date || row[1] || "").trim(),
+      workoutType: String(row.workoutType || row.type || row[2] || "").trim(),
+      duration: String(row.duration || row[5] || "").trim(),
+      durationSeconds: Number(row.durationSeconds || row[6] || 0),
+      exercise: String(row.exercise || row.name || row[7] || "").trim(),
+      setNumber: Number(row.setNumber || row.set || row[8] || 0),
+      weight: Number(row.weight || row[9] || 0),
+      unit: String(row.unit || row[10] || settings.defaultUnit).trim() || settings.defaultUnit,
+      reps: Number(row.reps || row[11] || 0),
+      rpe: String(row.rpe || row[12] || "").trim(),
+    }))
+    .filter((row) => row.date && row.exercise && Number.isFinite(row.weight) && Number.isFinite(row.reps));
+}
+
+function renderExerciseStats(rows, workoutType, exercise) {
+  const filtered = rows.filter((row) => row.workoutType === workoutType && row.exercise === exercise);
+  if (!filtered.length) {
+    renderStatsEmpty(`No logged sets found for ${exercise}.`);
     return;
   }
 
-  els.analysisOutput.innerHTML = text
-    .split(/\n{2,}/)
-    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`)
-    .join("");
+  const stats = calculateExerciseStats(filtered);
+  const trendClass = stats.volumeChange >= 0 ? "positive" : "negative";
+  const weightTrendClass = stats.weightChange >= 0 ? "positive" : "negative";
+
+  els.statsGrid.innerHTML = `
+    <article class="stat-card stat-card-wide">
+      <span>Exercise</span>
+      <strong>${escapeHtml(exercise)}</strong>
+      <small>${escapeHtml(workoutType)} - ${stats.sessions.length} session${stats.sessions.length === 1 ? "" : "s"} tracked</small>
+    </article>
+    ${statCard("Total Volume", formatNumber(stats.totalVolume), `${stats.totalSets} sets logged`)}
+    ${statCard("Best Weight", `${formatNumber(stats.bestWeight.weight)} ${escapeHtml(stats.unit)}`, `${stats.bestWeight.reps} reps on ${escapeHtml(stats.bestWeight.date)}`)}
+    ${statCard("Best Reps", `${formatNumber(stats.bestReps.reps)} reps`, `${formatNumber(stats.bestReps.weight)} ${escapeHtml(stats.unit)} on ${escapeHtml(stats.bestReps.date)}`)}
+    ${statCard("Best Est. 1RM", `${formatNumber(stats.bestOneRepMax.value)} ${escapeHtml(stats.unit)}`, `${formatNumber(stats.bestOneRepMax.weight)} x ${stats.bestOneRepMax.reps}`)}
+    ${statCard("Avg Set", `${formatNumber(stats.avgWeight)} ${escapeHtml(stats.unit)} x ${formatNumber(stats.avgReps)}`, "Across all logged sets")}
+    ${trendCard("Latest Volume", formatNumber(stats.latest.volume), `${formatSigned(stats.volumeChange)} vs previous`, trendClass)}
+    ${trendCard("Latest Top Weight", `${formatNumber(stats.latest.topWeight)} ${escapeHtml(stats.unit)}`, `${formatSigned(stats.weightChange)} ${escapeHtml(stats.unit)} vs previous`, weightTrendClass)}
+    <article class="stat-card stat-card-wide">
+      <span>Recent Sessions</span>
+      <div class="session-list">
+        ${stats.sessions.slice(-5).reverse().map(renderSessionRow).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function calculateExerciseStats(rows) {
+  const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date) || a.setNumber - b.setNumber);
+  const unit = sorted.find((row) => row.unit)?.unit || settings.defaultUnit;
+  const totalSets = sorted.length;
+  const totalVolume = sorted.reduce((sum, row) => sum + row.weight * row.reps, 0);
+  const avgWeight = totalSets ? sorted.reduce((sum, row) => sum + row.weight, 0) / totalSets : 0;
+  const avgReps = totalSets ? sorted.reduce((sum, row) => sum + row.reps, 0) / totalSets : 0;
+  const bestWeight = maxBy(sorted, (row) => row.weight);
+  const bestReps = maxBy(sorted, (row) => row.reps);
+  const bestOneRepMax = maxBy(sorted.map((row) => ({ ...row, value: estimatedOneRepMax(row) })), (row) => row.value);
+  const sessions = groupSessions(sorted);
+  const latest = sessions[sessions.length - 1] || emptySession();
+  const previous = sessions[sessions.length - 2] || emptySession();
+
+  return {
+    unit,
+    totalSets,
+    totalVolume,
+    avgWeight,
+    avgReps,
+    bestWeight,
+    bestReps,
+    bestOneRepMax,
+    sessions,
+    latest,
+    previous,
+    volumeChange: latest.volume - previous.volume,
+    weightChange: latest.topWeight - previous.topWeight,
+  };
+}
+
+function groupSessions(rows) {
+  const sessions = new Map();
+
+  rows.forEach((row) => {
+    const key = `${row.date}|${row.duration}`;
+    if (!sessions.has(key)) {
+      sessions.set(key, {
+        date: row.date,
+        duration: row.duration,
+        sets: 0,
+        reps: 0,
+        volume: 0,
+        topWeight: 0,
+        topSet: "",
+      });
+    }
+
+    const session = sessions.get(key);
+    const volume = row.weight * row.reps;
+    session.sets += 1;
+    session.reps += row.reps;
+    session.volume += volume;
+
+    if (row.weight >= session.topWeight) {
+      session.topWeight = row.weight;
+      session.topSet = `${formatNumber(row.weight)} ${row.unit} x ${row.reps}`;
+    }
+  });
+
+  return [...sessions.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function emptySession() {
+  return { date: "", duration: "", sets: 0, reps: 0, volume: 0, topWeight: 0, topSet: "" };
+}
+
+function estimatedOneRepMax(row) {
+  return row.weight * (1 + row.reps / 30);
+}
+
+function maxBy(items, selector) {
+  return items.reduce((best, item) => (selector(item) > selector(best) ? item : best), items[0]);
+}
+
+function statCard(label, value, detail) {
+  return `
+    <article class="stat-card">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+      <small>${escapeHtml(detail)}</small>
+    </article>
+  `;
+}
+
+function trendCard(label, value, detail, trendClass) {
+  return `
+    <article class="stat-card">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+      <small class="trend ${trendClass}">${escapeHtml(detail)}</small>
+    </article>
+  `;
+}
+
+function renderSessionRow(session) {
+  return `
+    <div class="session-row">
+      <strong>${escapeHtml(session.date)}</strong>
+      <span>${formatNumber(session.volume)} volume</span>
+      <span>${session.sets} sets</span>
+      <span>${escapeHtml(session.topSet || "No top set")}</span>
+    </div>
+  `;
+}
+
+function renderStatsEmpty(message) {
+  els.statsGrid.innerHTML = `<p class="empty-state">${escapeHtml(message)}</p>`;
+}
+
+function formatNumber(value) {
+  const number = Number(value || 0);
+  return Number.isInteger(number) ? number.toLocaleString() : number.toLocaleString(undefined, { maximumFractionDigits: 1 });
+}
+
+function formatSigned(value) {
+  const number = Number(value || 0);
+  return `${number >= 0 ? "+" : ""}${formatNumber(number)}`;
 }
 
 function buildSubmissionRequest(payload) {
@@ -917,8 +1114,8 @@ function setReferenceProcessing(isProcessing) {
 }
 
 function setAnalysisProcessing(isProcessing) {
-  els.analysisSubmit.disabled = isProcessing;
-  els.analysisSubmit.textContent = isProcessing ? "Analyzing..." : "Analyze";
+  els.statsRefresh.disabled = isProcessing;
+  els.statsRefresh.textContent = isProcessing ? "Loading..." : "Refresh";
 }
 
 function resetForm(unit) {

@@ -189,7 +189,7 @@ h2 {
 .settings-panel,
 .exercise-card,
 .analysis-card,
-.analysis-output {
+.stat-card {
   border: 1px solid var(--border);
   border-radius: 0.35rem;
   background: var(--surface);
@@ -199,7 +199,7 @@ h2 {
 .setup-card,
 .settings-panel,
 .analysis-card,
-.analysis-output {
+.stat-card {
   padding: 1rem;
 }
 
@@ -357,26 +357,74 @@ textarea {
   gap: 0.75rem;
 }
 
-.analysis-actions {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.analysis-card textarea {
-  min-height: 132px;
-}
-
-.analysis-output {
+.stats-grid {
   display: grid;
-  gap: 0.85rem;
-  min-height: 180px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
   margin-top: 1rem;
 }
 
-.analysis-output p {
-  margin: 0;
+.stat-card {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.9rem;
+}
+
+.stat-card-wide {
+  grid-column: 1 / -1;
+}
+
+.stat-card span,
+.stat-card small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.stat-card strong {
+  min-width: 0;
+  color: var(--text);
+  font-size: 1.25rem;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.stat-card small {
+  font-weight: 650;
+}
+
+.trend.positive {
+  color: var(--accent-dark);
+}
+
+.trend.negative {
+  color: var(--danger);
+}
+
+.session-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.session-row {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, 1fr) repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  padding-top: 0.45rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.session-row strong {
+  color: var(--text);
+  font-size: 0.86rem;
 }
 
 .empty-state {
+  grid-column: 1 / -1;
   color: var(--muted);
 }
 
@@ -637,7 +685,7 @@ textarea {
     grid-template-columns: 1fr 1fr;
   }
 
-  .analysis-range {
+  .analysis-card {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -653,7 +701,7 @@ textarea {
   .setup-card,
   .settings-panel,
   .analysis-card,
-  .analysis-output,
+  .stat-card,
   .modal-card {
     padding: 1.25rem;
   }
@@ -668,7 +716,6 @@ textarea {
   .page-header,
   .section-heading,
   .header-actions,
-  .analysis-actions,
   .modal-actions {
     align-items: stretch;
     flex-direction: column;
@@ -676,7 +723,6 @@ textarea {
 
   .page-header .ghost-button,
   .header-actions button,
-  .analysis-actions button,
   .modal-actions button {
     width: 100%;
   }
@@ -690,6 +736,14 @@ textarea {
 @media (max-width: 619px) {
   .duration-panel {
     grid-template-columns: minmax(8.5rem, 12rem) auto;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .session-row {
+    grid-template-columns: 1fr 1fr;
   }
 
   .sets-wrap {
