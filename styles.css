@@ -358,30 +358,32 @@ textarea {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0;
+  gap: 1.25rem;
   margin-top: 1.25rem;
+}
+
+.stats-section {
+  display: grid;
+  gap: 0.75rem;
   border-top: 1px solid var(--border);
+  padding-top: 0.9rem;
+}
+
+.stats-section h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+.stats-section-grid {
+  display: grid;
+  gap: 0.75rem;
 }
 
 .stat-card {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.2rem;
   min-width: 0;
-  border-bottom: 1px solid var(--border);
-  padding: 0.9rem 0;
-}
-
-.stat-card-wide {
-  grid-column: 1 / -1;
-}
-
-.stats-grid .stat-card:not(.stat-card-wide):nth-of-type(even) {
-  padding-right: 0.75rem;
-}
-
-.stats-grid .stat-card:not(.stat-card-wide):nth-of-type(odd) {
-  padding-left: 0.75rem;
 }
 
 .stat-card span,
@@ -434,11 +436,13 @@ textarea {
 
 .chart-card {
   gap: 0.75rem;
-  padding-top: 1.15rem;
 }
 
-.chart-card strong {
-  font-size: 0.95rem;
+.chart-card p {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .chart-wrap {
@@ -748,6 +752,10 @@ textarea {
     grid-template-columns: 1fr 1fr;
   }
 
+  .stats-section-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .settings-grid {
     grid-template-columns: 0.7fr 0.7fr 1.3fr 1fr;
   }
@@ -811,16 +819,6 @@ textarea {
 @media (max-width: 619px) {
   .duration-panel {
     grid-template-columns: minmax(8.5rem, 12rem) auto;
-  }
-
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .stats-grid .stat-card:not(.stat-card-wide):nth-of-type(even),
-  .stats-grid .stat-card:not(.stat-card-wide):nth-of-type(odd) {
-    padding-right: 0;
-    padding-left: 0;
   }
 
   .session-row {

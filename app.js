@@ -907,18 +907,20 @@ function renderExerciseStats(rows, exercise) {
   const weightTrendClass = stats.weightChange >= 0 ? "positive" : "negative";
 
   els.statsGrid.innerHTML = `
-    <article class="stat-card stat-card-wide">
-      <span>Exercise</span>
-      <strong>${escapeHtml(exercise)}</strong>
-      <small>${stats.sessions.length} session${stats.sessions.length === 1 ? "" : "s"} tracked across ${stats.workoutTypes.length} workout type${stats.workoutTypes.length === 1 ? "" : "s"}</small>
-    </article>
-    ${statCard("Total Volume", formatNumber(stats.totalVolume), `${stats.totalSets} sets logged`)}
-    ${statCard("Best Weight", `${formatNumber(stats.bestWeight.weight)} ${escapeHtml(stats.unit)}`, `${stats.bestWeight.reps} reps on ${escapeHtml(stats.bestWeight.date)}`)}
-    ${statCard("Best Reps", `${formatNumber(stats.bestReps.reps)} reps`, `${formatNumber(stats.bestReps.weight)} ${escapeHtml(stats.unit)} on ${escapeHtml(stats.bestReps.date)}`)}
-    ${statCard("Best Est. 1RM", `${formatNumber(stats.bestOneRepMax.value)} ${escapeHtml(stats.unit)}`, `${formatNumber(stats.bestOneRepMax.weight)} x ${stats.bestOneRepMax.reps}`)}
-    ${statCard("Avg Set", `${formatNumber(stats.avgWeight)} ${escapeHtml(stats.unit)} x ${formatNumber(stats.avgReps)}`, "Across all logged sets")}
-    ${trendCard("Latest Volume", formatNumber(stats.latest.volume), `${formatSigned(stats.volumeChange)} vs previous`, trendClass)}
-    ${trendCard("Latest Top Weight", `${formatNumber(stats.latest.topWeight)} ${escapeHtml(stats.unit)}`, `${formatSigned(stats.weightChange)} ${escapeHtml(stats.unit)} vs previous`, weightTrendClass)}
+    ${statSection("Overview", [
+      statCard("Exercise", exercise, `${stats.sessions.length} session${stats.sessions.length === 1 ? "" : "s"} across ${stats.workoutTypes.length} workout type${stats.workoutTypes.length === 1 ? "" : "s"}`),
+      statCard("Total Volume", formatNumber(stats.totalVolume), `${stats.totalSets} sets logged`),
+      statCard("Avg Set", `${formatNumber(stats.avgWeight)} ${stats.unit} x ${formatNumber(stats.avgReps)}`, "Across all logged sets"),
+    ])}
+    ${statSection("Personal Bests", [
+      statCard("Best Weight", `${formatNumber(stats.bestWeight.weight)} ${stats.unit}`, `${stats.bestWeight.reps} reps on ${stats.bestWeight.date}`),
+      statCard("Best Reps", `${formatNumber(stats.bestReps.reps)} reps`, `${formatNumber(stats.bestReps.weight)} ${stats.unit} on ${stats.bestReps.date}`),
+      statCard("Best Est. 1RM", `${formatNumber(stats.bestOneRepMax.value)} ${stats.unit}`, `${formatNumber(stats.bestOneRepMax.weight)} x ${stats.bestOneRepMax.reps}`),
+    ])}
+    ${statSection("Latest Change", [
+      trendCard("Volume", formatNumber(stats.latest.volume), `${formatSigned(stats.volumeChange)} vs previous`, trendClass),
+      trendCard("Top Weight", `${formatNumber(stats.latest.topWeight)} ${stats.unit}`, `${formatSigned(stats.weightChange)} ${stats.unit} vs previous`, weightTrendClass),
+    ])}
     ${chartCard("Top Weight", `${stats.unit} by session`, stats.sessions.map((session) => ({
       label: session.date,
       value: session.topWeight,
@@ -927,12 +929,12 @@ function renderExerciseStats(rows, exercise) {
       label: session.date,
       value: session.volume,
     })))}
-    <article class="stat-card stat-card-wide">
-      <span>Recent Sessions</span>
+    <section class="stats-section">
+      <h3>Recent Sessions</h3>
       <div class="session-list">
         ${stats.sessions.slice(-5).reverse().map(renderSessionRow).join("")}
       </div>
-    </article>
+    </section>
   `;
 }
 
@@ -1013,35 +1015,46 @@ function maxBy(items, selector) {
   return items.reduce((best, item) => (selector(item) > selector(best) ? item : best), items[0]);
 }
 
+function statSection(title, cards) {
+  return `
+    <section class="stats-section">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="stats-section-grid">
+        ${cards.join("")}
+      </div>
+    </section>
+  `;
+}
+
 function statCard(label, value, detail) {
   return `
-    <article class="stat-card">
+    <div class="stat-card">
       <span>${escapeHtml(label)}</span>
       <strong>${escapeHtml(value)}</strong>
       <small>${escapeHtml(detail)}</small>
-    </article>
+    </div>
   `;
 }
 
 function trendCard(label, value, detail, trendClass) {
   return `
-    <article class="stat-card">
+    <div class="stat-card">
       <span>${escapeHtml(label)}</span>
       <strong>${escapeHtml(value)}</strong>
       <small class="trend ${trendClass}">${escapeHtml(detail)}</small>
-    </article>
+    </div>
   `;
 }
 
 function chartCard(title, detail, points) {
   return `
-    <article class="stat-card stat-card-wide chart-card">
+    <section class="stats-section chart-card">
       <div>
-        <span>${escapeHtml(title)}</span>
-        <strong>${escapeHtml(detail)}</strong>
+        <h3>${escapeHtml(title)}</h3>
+        <p>${escapeHtml(detail)}</p>
       </div>
       ${renderLineChart(points)}
-    </article>
+    </section>
   `;
 }
 
