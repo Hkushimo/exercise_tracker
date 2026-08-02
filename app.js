@@ -919,6 +919,14 @@ function renderExerciseStats(rows, exercise) {
     ${statCard("Avg Set", `${formatNumber(stats.avgWeight)} ${escapeHtml(stats.unit)} x ${formatNumber(stats.avgReps)}`, "Across all logged sets")}
     ${trendCard("Latest Volume", formatNumber(stats.latest.volume), `${formatSigned(stats.volumeChange)} vs previous`, trendClass)}
     ${trendCard("Latest Top Weight", `${formatNumber(stats.latest.topWeight)} ${escapeHtml(stats.unit)}`, `${formatSigned(stats.weightChange)} ${escapeHtml(stats.unit)} vs previous`, weightTrendClass)}
+    ${chartCard("Top Weight", `${stats.unit} by session`, stats.sessions.map((session) => ({
+      label: session.date,
+      value: session.topWeight,
+    })))}
+    ${chartCard("Volume", "Total weight x reps by session", stats.sessions.map((session) => ({
+      label: session.date,
+      value: session.volume,
+    })))}
     <article class="stat-card stat-card-wide">
       <span>Recent Sessions</span>
       <div class="session-list">
@@ -1023,6 +1031,76 @@ function trendCard(label, value, detail, trendClass) {
       <small class="trend ${trendClass}">${escapeHtml(detail)}</small>
     </article>
   `;
+}
+
+function chartCard(title, detail, points) {
+  return `
+    <article class="stat-card stat-card-wide chart-card">
+      <div>
+        <span>${escapeHtml(title)}</span>
+        <strong>${escapeHtml(detail)}</strong>
+      </div>
+      ${renderLineChart(points)}
+    </article>
+  `;
+}
+
+function renderLineChart(points) {
+  const cleanPoints = points.filter((point) => Number.isFinite(point.value));
+  if (cleanPoints.length < 2) {
+    return `<p class="empty-state">Log this exercise on at least two sessions to see a trend chart.</p>`;
+  }
+
+  const width = 640;
+  const height = 220;
+  const padding = { top: 18, right: 22, bottom: 38, left: 52 };
+  const values = cleanPoints.map((point) => point.value);
+  const rawMin = Math.min(...values);
+  const rawMax = Math.max(...values);
+  const max = rawMax === rawMin ? rawMax + 1 : rawMax;
+  const min = rawMax === rawMin ? Math.max(0, rawMin - 1) : rawMin;
+  const range = max - min || 1;
+  const xStep = cleanPoints.length === 1 ? 0 : (width - padding.left - padding.right) / (cleanPoints.length - 1);
+  const yScale = (value) => padding.top + (max - value) / range * (height - padding.top - padding.bottom);
+  const xScale = (index) => padding.left + index * xStep;
+  const path = cleanPoints.map((point, index) => `${index === 0 ? "M" : "L"} ${xScale(index).toFixed(1)} ${yScale(point.value).toFixed(1)}`).join(" ");
+  const yTicks = [max, min + range / 2, min];
+  const labelIndexes = chartLabelIndexes(cleanPoints.length);
+
+  return `
+    <div class="chart-wrap">
+      <svg class="line-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(cleanPoints.length)} session trend chart">
+        <g class="chart-grid">
+          ${yTicks.map((tick) => {
+            const y = yScale(tick).toFixed(1);
+            return `<path d="M ${padding.left} ${y} H ${width - padding.right}"></path>`;
+          }).join("")}
+        </g>
+        <g class="chart-axis">
+          <path d="M ${padding.left} ${padding.top} V ${height - padding.bottom} H ${width - padding.right}"></path>
+        </g>
+        <path class="chart-line" d="${path}"></path>
+        <g class="chart-points">
+          ${cleanPoints.map((point, index) => `<circle cx="${xScale(index).toFixed(1)}" cy="${yScale(point.value).toFixed(1)}" r="4"><title>${escapeHtml(point.label)}: ${escapeHtml(formatNumber(point.value))}</title></circle>`).join("")}
+        </g>
+        <g class="chart-labels">
+          ${yTicks.map((tick) => `<text x="${padding.left - 10}" y="${(yScale(tick) + 4).toFixed(1)}" text-anchor="end">${escapeHtml(formatNumber(tick))}</text>`).join("")}
+          ${labelIndexes.map((index) => `<text x="${xScale(index).toFixed(1)}" y="${height - 12}" text-anchor="${index === 0 ? "start" : index === cleanPoints.length - 1 ? "end" : "middle"}">${escapeHtml(shortDate(cleanPoints[index].label))}</text>`).join("")}
+        </g>
+      </svg>
+    </div>
+  `;
+}
+
+function chartLabelIndexes(length) {
+  if (length <= 3) return Array.from({ length }, (_, index) => index);
+  return [0, Math.floor((length - 1) / 2), length - 1];
+}
+
+function shortDate(value) {
+  const parts = String(value).split("-");
+  if (parts.length === 3) return `${Number(parts[1])}/${Number(parts[2])}`;
+  return value;
 }
 
 function renderSessionRow(session) {

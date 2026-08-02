@@ -424,6 +424,55 @@ textarea {
   font-size: 0.86rem;
 }
 
+.chart-card {
+  gap: 0.85rem;
+}
+
+.chart-card strong {
+  font-size: 0.95rem;
+}
+
+.chart-wrap {
+  width: 100%;
+  overflow: hidden;
+}
+
+.line-chart {
+  display: block;
+  width: 100%;
+  min-height: 180px;
+}
+
+.chart-grid path {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.chart-axis path {
+  stroke: var(--border);
+  stroke-width: 1.25;
+}
+
+.chart-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 4;
+}
+
+.chart-points circle {
+  fill: var(--surface);
+  stroke: var(--accent-dark);
+  stroke-width: 3;
+}
+
+.chart-labels text {
+  fill: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
 .empty-state {
   grid-column: 1 / -1;
   color: var(--muted);
