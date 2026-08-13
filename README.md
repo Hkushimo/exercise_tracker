@@ -197,8 +197,8 @@ function readWorkoutRows(exerciseFilter, dateFilter) {
       submittedAt: formatSheetDate(row[0]),
       date: formatSheetDate(row[1]),
       workoutType: String(row[2] || ""),
-      startedAt: String(row[3] || ""),
-      finishedAt: String(row[4] || ""),
+      startedAt: formatSheetTime(row[3]),
+      finishedAt: formatSheetTime(row[4]),
       duration: String(row[5] || ""),
       durationSeconds: Number(row[6] || 0),
       exercise: String(row[7] || ""),
@@ -223,6 +223,14 @@ function formatSheetDate(value) {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
   return Utilities.formatDate(date, APP_TIME_ZONE, "yyyy-MM-dd");
+}
+
+function formatSheetTime(value) {
+  if (!value) return "";
+  if (typeof value === "string" && /^\d{1,2}:\d{2}\s?(AM|PM)$/i.test(value)) return value;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return Utilities.formatDate(date, APP_TIME_ZONE, "h:mm a");
 }
 
 function readReferences() {

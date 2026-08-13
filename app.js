@@ -936,8 +936,8 @@ function parseWorkoutRows(payload) {
       submittedAt: String(row.submittedAt || row[0] || "").trim(),
       date: String(row.date || row[1] || "").trim(),
       workoutType: String(row.workoutType || row.type || row[2] || "").trim(),
-      startedAt: String(row.startedAt || row[3] || "").trim(),
-      finishedAt: String(row.finishedAt || row[4] || "").trim(),
+      startedAt: formatHistoryTime(row.startedAt || row[3] || ""),
+      finishedAt: formatHistoryTime(row.finishedAt || row[4] || ""),
       duration: String(row.duration || row[5] || "").trim(),
       durationSeconds: Number(row.durationSeconds || row[6] || 0),
       exercise: String(row.exercise || row.name || row[7] || "").trim(),
@@ -1071,6 +1071,27 @@ function formatSessionTime(session) {
   if (session.startedAt) return `Started ${session.startedAt}`;
   if (session.finishedAt) return `Finished ${session.finishedAt}`;
   return session.date;
+}
+
+function formatHistoryTime(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^\d{1,2}:\d{2}\s?(AM|PM)$/i.test(raw)) return raw.replace(/\s?(AM|PM)$/i, " $1").toUpperCase();
+
+  const date = new Date(raw);
+  if (!Number.isNaN(date.getTime())) {
+    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  }
+
+  const match = raw.match(/(\d{1,2}:\d{2}:\d{2})/);
+  if (match) {
+    const [hours, minutes] = match[1].split(":").map(Number);
+    const suffix = hours >= 12 ? "PM" : "AM";
+    const displayHours = hours % 12 || 12;
+    return `${displayHours}:${String(minutes).padStart(2, "0")} ${suffix}`;
+  }
+
+  return raw;
 }
 
 function renderDateWorkoutsEmpty(message) {
