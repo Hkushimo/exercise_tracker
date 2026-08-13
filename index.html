@@ -164,7 +164,33 @@
         <div class="section-heading">
           <div>
             <h2 id="analysisHeading">Analysis</h2>
-            <p>Pick an exercise to see progression from your logged workouts.</p>
+            <p>Review a day or pick an exercise to see progression.</p>
+          </div>
+        </div>
+
+        <div class="section-heading compact-heading">
+          <div>
+            <h3>Workouts by Date</h3>
+            <p>Choose a date to view each logged workout session.</p>
+          </div>
+          <button class="secondary-button" type="button" id="historyRefreshButton">Refresh</button>
+        </div>
+
+        <div class="analysis-card analysis-card-single">
+          <label>
+            <span>Date</span>
+            <input id="historyDate" type="date" />
+          </label>
+        </div>
+
+        <div class="date-workout-list" id="dateWorkoutList" aria-live="polite">
+          <p class="empty-state">Choose a date to load workouts.</p>
+        </div>
+
+        <div class="section-heading compact-heading">
+          <div>
+            <h3>Exercise Progress</h3>
+            <p>Category only filters the exercise list. Stats search all matching exercise logs.</p>
           </div>
           <button class="secondary-button" type="button" id="statsRefreshButton">Refresh</button>
         </div>

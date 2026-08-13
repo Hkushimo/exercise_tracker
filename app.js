@@ -142,6 +142,9 @@ const els = {
   statsExercise: document.querySelector("#statsExercise"),
   statsRefresh: document.querySelector("#statsRefreshButton"),
   statsGrid: document.querySelector("#statsGrid"),
+  historyDate: document.querySelector("#historyDate"),
+  historyRefresh: document.querySelector("#historyRefreshButton"),
+  dateWorkoutList: document.querySelector("#dateWorkoutList"),
   analysisMessage: document.querySelector("#analysisMessage"),
   summaryModal: document.querySelector("#summaryModal"),
   summaryContent: document.querySelector("#summaryContent"),
@@ -155,6 +158,7 @@ let pendingPayload = null;
 let saveTimer = 0;
 let deferredInstallPrompt = null;
 let statsHasLoaded = false;
+let historyHasLoaded = false;
 
 init();
 
@@ -163,6 +167,7 @@ async function init() {
   setupInstallPrompt();
   applyTheme(settings.theme);
   els.date.value = todayIso();
+  els.historyDate.value = todayIso();
   els.defaultUnit.value = settings.defaultUnit;
   els.themeMode.value = settings.theme;
   els.apiUrl.value = settings.apiUrl;
@@ -208,6 +213,8 @@ async function init() {
   });
   els.statsExercise.addEventListener("change", loadExerciseStats);
   els.statsRefresh.addEventListener("click", loadExerciseStats);
+  els.historyDate.addEventListener("change", loadWorkoutsByDate);
+  els.historyRefresh.addEventListener("click", loadWorkoutsByDate);
 
   els.settingsToggle.addEventListener("click", toggleSettings);
   els.logViewButton.addEventListener("click", () => switchView("log"));
@@ -438,8 +445,9 @@ function switchView(view) {
 
   if (showAnalysis) {
     populateStatsFilters();
+    if (!historyHasLoaded) loadWorkoutsByDate();
     if (!statsHasLoaded) loadExerciseStats();
-    els.statsExercise.focus();
+    els.historyDate.focus();
   } else {
     els.date.focus();
   }
@@ -868,10 +876,54 @@ async function loadExerciseStats() {
   }
 }
 
+async function loadWorkoutsByDate() {
+  clearAnalysisMessage();
+
+  const date = els.historyDate.value;
+
+  if (!date) {
+    renderDateWorkoutsEmpty("Choose a date.");
+    return;
+  }
+
+  setHistoryProcessing(true);
+
+  try {
+    const response = await fetch(buildWorkoutDateUrl(date), { method: "GET", mode: "cors" });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(text || `Backend returned ${response.status}`);
+    }
+
+    const body = await response.json();
+    if (body.ok === false) {
+      throw new Error(body.error || "Backend rejected the date request.");
+    }
+
+    const rows = parseWorkoutRows(body.rows || body.history || body).filter((row) => row.date === date);
+    renderDateWorkouts(rows, date);
+    historyHasLoaded = true;
+  } catch (error) {
+    renderDateWorkoutsEmpty("Workouts could not load yet.");
+    showAnalysisMessage(readableSubmitError(error).replace("Submission failed", "Date view failed"), "error");
+  } finally {
+    setHistoryProcessing(false);
+  }
+}
+
 function buildWorkoutHistoryUrl(exercise) {
   const url = new URL(settings.apiUrl || API_URL);
   url.searchParams.set("action", "workoutHistory");
   url.searchParams.set("exercise", exercise);
+  if (settings.apiToken) url.searchParams.set("apiToken", settings.apiToken);
+  return url.toString();
+}
+
+function buildWorkoutDateUrl(date) {
+  const url = new URL(settings.apiUrl || API_URL);
+  url.searchParams.set("action", "workoutHistory");
+  url.searchParams.set("date", date);
   if (settings.apiToken) url.searchParams.set("apiToken", settings.apiToken);
   return url.toString();
 }
@@ -881,8 +933,11 @@ function parseWorkoutRows(payload) {
 
   return payload
     .map((row) => ({
+      submittedAt: String(row.submittedAt || row[0] || "").trim(),
       date: String(row.date || row[1] || "").trim(),
       workoutType: String(row.workoutType || row.type || row[2] || "").trim(),
+      startedAt: String(row.startedAt || row[3] || "").trim(),
+      finishedAt: String(row.finishedAt || row[4] || "").trim(),
       duration: String(row.duration || row[5] || "").trim(),
       durationSeconds: Number(row.durationSeconds || row[6] || 0),
       exercise: String(row.exercise || row.name || row[7] || "").trim(),
@@ -893,6 +948,133 @@ function parseWorkoutRows(payload) {
       rpe: String(row.rpe || row[12] || "").trim(),
     }))
     .filter((row) => row.date && row.exercise && Number.isFinite(row.weight) && Number.isFinite(row.reps));
+}
+
+function renderDateWorkouts(rows, date) {
+  if (!rows.length) {
+    renderDateWorkoutsEmpty(`No workouts logged for ${date}.`);
+    return;
+  }
+
+  const sessions = groupDateWorkoutSessions(rows);
+  const totalVolume = sessions.reduce((sum, session) => sum + session.volume, 0);
+  const totalSets = sessions.reduce((sum, session) => sum + session.sets, 0);
+  const totalSeconds = sessions.reduce((sum, session) => sum + session.durationSeconds, 0);
+
+  els.dateWorkoutList.innerHTML = `
+    <section class="date-summary">
+      <div>
+        <span>Workouts</span>
+        <strong>${sessions.length}</strong>
+      </div>
+      <div>
+        <span>Total Time</span>
+        <strong>${escapeHtml(formatDuration(totalSeconds))}</strong>
+      </div>
+      <div>
+        <span>Volume</span>
+        <strong>${formatNumber(totalVolume)}</strong>
+      </div>
+      <div>
+        <span>Sets</span>
+        <strong>${totalSets}</strong>
+      </div>
+    </section>
+    ${sessions.map(renderDateSession).join("")}
+  `;
+}
+
+function groupDateWorkoutSessions(rows) {
+  const sessions = new Map();
+  const sorted = [...rows].sort((a, b) => {
+    return (a.startedAt || "").localeCompare(b.startedAt || "") || a.workoutType.localeCompare(b.workoutType) || a.setNumber - b.setNumber;
+  });
+
+  sorted.forEach((row) => {
+    const key = [row.date, row.workoutType, row.startedAt, row.finishedAt, row.duration].join("|");
+    if (!sessions.has(key)) {
+      sessions.set(key, {
+        date: row.date,
+        workoutType: row.workoutType || "Workout",
+        startedAt: row.startedAt,
+        finishedAt: row.finishedAt,
+        duration: row.duration,
+        durationSeconds: row.durationSeconds,
+        volume: 0,
+        sets: 0,
+        exercises: new Map(),
+      });
+    }
+
+    const session = sessions.get(key);
+    const volume = row.weight * row.reps;
+    session.volume += volume;
+    session.sets += 1;
+
+    if (!session.exercises.has(row.exercise)) {
+      session.exercises.set(row.exercise, []);
+    }
+
+    session.exercises.get(row.exercise).push({ ...row, volume });
+  });
+
+  return [...sessions.values()];
+}
+
+function renderDateSession(session) {
+  return `
+    <article class="date-session">
+      <header class="date-session-header">
+        <div>
+          <h3>${escapeHtml(session.workoutType)}</h3>
+          <p>${escapeHtml(formatSessionTime(session))}</p>
+        </div>
+        <div class="date-session-totals">
+          <span>${escapeHtml(session.duration || formatDuration(session.durationSeconds))}</span>
+          <span>${formatNumber(session.volume)} volume</span>
+          <span>${session.sets} sets</span>
+        </div>
+      </header>
+      <div class="date-exercise-list">
+        ${[...session.exercises.entries()].map(([exercise, sets]) => renderDateExercise(exercise, sets)).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function renderDateExercise(exercise, sets) {
+  const exerciseVolume = sets.reduce((sum, set) => sum + set.volume, 0);
+
+  return `
+    <section class="date-exercise">
+      <div class="date-exercise-heading">
+        <strong>${escapeHtml(exercise)}</strong>
+        <span>${sets.length} set${sets.length === 1 ? "" : "s"} · ${formatNumber(exerciseVolume)} volume</span>
+      </div>
+      <div class="date-set-list">
+        ${sets
+          .sort((a, b) => a.setNumber - b.setNumber)
+          .map((set) => `
+            <div class="date-set-row">
+              <span>Set ${set.setNumber || ""}</span>
+              <strong>${formatNumber(set.weight)} ${escapeHtml(set.unit)} x ${formatNumber(set.reps)}</strong>
+              <em>${escapeHtml(set.rpe || "No RPE")}</em>
+            </div>
+          `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function formatSessionTime(session) {
+  if (session.startedAt && session.finishedAt) return `${session.startedAt} to ${session.finishedAt}`;
+  if (session.startedAt) return `Started ${session.startedAt}`;
+  if (session.finishedAt) return `Finished ${session.finishedAt}`;
+  return session.date;
+}
+
+function renderDateWorkoutsEmpty(message) {
+  els.dateWorkoutList.innerHTML = `<p class="empty-state">${escapeHtml(message)}</p>`;
 }
 
 function renderExerciseStats(rows, exercise) {
@@ -1207,6 +1389,11 @@ function setReferenceProcessing(isProcessing) {
 function setAnalysisProcessing(isProcessing) {
   els.statsRefresh.disabled = isProcessing;
   els.statsRefresh.textContent = isProcessing ? "Loading..." : "Refresh";
+}
+
+function setHistoryProcessing(isProcessing) {
+  els.historyRefresh.disabled = isProcessing;
+  els.historyRefresh.textContent = isProcessing ? "Loading..." : "Refresh";
 }
 
 function resetForm(unit) {

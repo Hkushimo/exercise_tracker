@@ -22,7 +22,7 @@ Users can change the API URL in the Settings section of the app. An optional API
 Authorization: Bearer <token>
 ```
 
-Do not put Google credentials, service account keys, or private API secrets in this frontend. The backend should validate requests, append accepted workouts to Google Sheets, return exercise references from the `References` tab, and return filtered workout history for the stats view. The workout page asks the backend for `?action=references` on load, so the Sheet can be the source of truth for dropdown options.
+Do not put Google credentials, service account keys, or private API secrets in this frontend. The backend should validate requests, append accepted workouts to Google Sheets, return exercise references from the `References` tab, and return filtered workout history for the stats and date views. The workout page asks the backend for `?action=references` on load, so the Sheet can be the source of truth for dropdown options.
 
 ## Google Sheets API setup
 
@@ -76,7 +76,7 @@ function doGet(e) {
     }
 
     if (e.parameter.action === "workoutHistory") {
-      return jsonResponse({ ok: true, rows: readWorkoutRows(e.parameter.exercise) });
+      return jsonResponse({ ok: true, rows: readWorkoutRows(e.parameter.exercise, e.parameter.date) });
     }
 
     return jsonResponse({ ok: false, error: "Unknown action." });
@@ -184,12 +184,13 @@ function addReferenceExercise(payload) {
   return { ok: true, insertedRows: 1 };
 }
 
-function readWorkoutRows(exerciseFilter) {
+function readWorkoutRows(exerciseFilter, dateFilter) {
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(WORKOUTS_SHEET_NAME);
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
 
   const exercise = String(exerciseFilter || "").toLowerCase();
+  const targetDate = String(dateFilter || "").trim();
 
   return sheet.getRange(2, 1, lastRow - 1, 13).getValues()
     .map((row) => ({
@@ -209,6 +210,7 @@ function readWorkoutRows(exerciseFilter) {
     }))
     .filter((row) => {
       if (!row.date || !row.exercise) return false;
+      if (targetDate && row.date !== targetDate) return false;
       if (exercise && row.exercise.toLowerCase() !== exercise) return false;
       return true;
     })
