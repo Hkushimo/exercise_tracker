@@ -97,7 +97,7 @@ function doPost(e) {
     validateWorkout(payload);
 
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(WORKOUTS_SHEET_NAME);
-    const submittedAt = new Date();
+    const submittedAt = Utilities.formatDate(new Date(), APP_TIME_ZONE, "yyyy-MM-dd");
     const startedAt = payload.startedAt || formatWorkoutTime(payload.startedAtIso);
     const finishedAt = payload.finishedAt || formatWorkoutTime(payload.finishedAtIso);
     const rows = [];
